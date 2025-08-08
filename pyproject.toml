@@ -1,7 +1,69 @@
 [project]
 name = "byte-bandits-mcp-server"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Model Context Protocol (MCP) server boilerplate for Puch AI integration"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.11"
+dependencies = [
+    # Core MCP dependencies
+    "fastmcp>=0.2.0",
+    "mcp>=1.0.0",
+    
+    # Authentication & Security
+    "python-dotenv>=1.0.0",
+    "cryptography>=3.4.8",
+    
+    # Web & HTTP
+    "httpx>=0.24.0",
+    "uvicorn>=0.20.0",
+    
+    # Data validation
+    "pydantic>=2.0.0",
+    
+    # Web scraping & content processing (optional tools)
+    "beautifulsoup4>=4.12.0",
+    "readabilipy>=0.2.0",
+    "markdownify>=0.11.0",
+    
+    # Image processing (optional tools)
+    "Pillow>=9.0.0",
+    
+    # Additional utilities
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Include the main.py file as the main module
+include = [
+    "main.py",
+    "scripts/*",
+    "docs/*",
+    ".env.example"
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
