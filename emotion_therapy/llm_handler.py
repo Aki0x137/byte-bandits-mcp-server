@@ -323,7 +323,7 @@ class LLMHandler:
 
 # Factory functions for common configurations
 def create_openai_handler(
-    model: str = "gpt-3.5-turbo",
+    model: str = "gpt-4o-mini",
     temperature: float = 0.7,
     max_tokens: int = 500,
     api_key: Optional[str] = None

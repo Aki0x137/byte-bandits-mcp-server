@@ -1,0 +1,106 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "uv-sync",
+            "type": "shell",
+            "command": "uv",
+            "args": ["sync"],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Sync UV dependencies before debugging"
+        },
+        {
+            "label": "uv-run-server",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "python", "main.py"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Run the MCP server using uv",
+            "options": {
+                "env": {
+                    "AUTH_TOKEN": "${input:authToken}",
+                    "MY_NUMBER": "${input:phoneNumber}",
+                    "REDIS_URL": "redis://localhost:6379",
+                    "THERAPY_SESSION_TTL": "259200",
+                    "HOST": "0.0.0.0",
+                    "PORT": "8086"
+                }
+            }
+        },
+        {
+            "label": "uv-test",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "pytest", "tests/", "-v"],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": ["$python"],
+            "detail": "Run tests using uv and pytest"
+        },
+        {
+            "label": "uv-install",
+            "type": "shell",
+            "command": "uv",
+            "args": ["sync", "--dev"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Install all dependencies including dev dependencies"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "authToken",
+            "description": "Enter your AUTH_TOKEN",
+            "default": "your-auth-token-here",
+            "type": "promptString"
+        },
+        {
+            "id": "phoneNumber",
+            "description": "Enter your phone number (e.g., 919876543210)",
+            "default": "919876543210",
+            "type": "promptString"
+        }
+    ]
+}

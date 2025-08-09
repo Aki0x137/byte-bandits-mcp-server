@@ -1,0 +1,144 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug MCP Server (uv run)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [],
+            "env": {
+                "AUTH_TOKEN": "${input:authToken}",
+                "MY_NUMBER": "${input:phoneNumber}",
+                "REDIS_URL": "redis://localhost:6379",
+                "THERAPY_SESSION_TTL": "259200",
+                "HOST": "0.0.0.0",
+                "PORT": "8086",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "subProcess": true
+        },
+        {
+            "name": "Debug MCP Server (with environment file)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [],
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "subProcess": true
+        },
+        {
+            "name": "Debug Tests (pytest)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [
+                "tests/",
+                "-v",
+                "--tb=short"
+            ],
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true,
+            "stopOnEntry": false
+        },
+        {
+            "name": "Debug Specific Test File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [
+                "${file}",
+                "-v",
+                "--tb=short"
+            ],
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true,
+            "stopOnEntry": false
+        },
+        {
+            "name": "Debug Emotion Therapy Tools",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test_therapy_gemini.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [],
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true,
+            "stopOnEntry": false
+        },
+        {
+            "name": "Python Debugger: Remote Attach",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ]
+        },
+        {
+            "name": "Debug with uv run command",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "main.py"
+            ],
+            "env": {
+                "AUTH_TOKEN": "${input:authToken}",
+                "MY_NUMBER": "${input:phoneNumber}",
+                "REDIS_URL": "redis://localhost:6379",
+                "THERAPY_SESSION_TTL": "259200",
+                "HOST": "0.0.0.0",
+                "PORT": "8086"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "preLaunchTask": "uv-sync"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "authToken",
+            "description": "Enter your AUTH_TOKEN",
+            "default": "your-auth-token-here",
+            "type": "promptString"
+        },
+        {
+            "id": "phoneNumber",
+            "description": "Enter your phone number (e.g., 919876543210)",
+            "default": "919876543210",
+            "type": "promptString"
+        }
+    ]
+}
