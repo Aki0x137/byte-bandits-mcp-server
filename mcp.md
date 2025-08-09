@@ -25,6 +25,51 @@ For emotion therapy features:
 therapy_start your_user_id
 ```
 
+## ▶️ Run the server locally
+
+Prerequisites: Python 3.11+, uv (recommended), Redis optional (for therapy session persistence).
+
+- Configure environment variables (required):
+  - AUTH_TOKEN: bearer token for auth
+  - MY_NUMBER: your phone number digits (e.g., 14155551234)
+
+Quick start with uv:
+```bash
+# Inline env vars
+AUTH_TOKEN=demo_token_12345 MY_NUMBER=14155551234 uv run python main.py
+
+# Or export then run
+export AUTH_TOKEN=demo_token_12345
+export MY_NUMBER=14155551234
+uv run python main.py
+```
+
+Using helper script:
+```bash
+AUTH_TOKEN=demo_token_12345 MY_NUMBER=14155551234 scripts/run_server.sh
+```
+
+Optional Redis (for therapy):
+```bash
+export REDIS_URL=redis://localhost:6379
+export THERAPY_SESSION_TTL=259200
+```
+
+Optional: auto-run diagnostic questions after /feel
+```bash
+export THERAPY_AUTO_WHY=1   # or true/yes
+```
+
+Server URL (default):
+```
+http://localhost:8086/mcp/
+```
+
+Validate locally:
+```bash
+uv run python scripts/validate_mcp_app.py --base-url http://localhost:8086/mcp/ --wait
+```
+
 ## 📋 Core Tools
 
 ### `validate`
@@ -255,6 +300,38 @@ therapy_breathe alice123
 # Returns: "Try box breathing: inhale 4, hold 4, exhale 4, hold 4 — repeat 4 cycles."
 ```
 
+### Self-Help Tools (Available Anytime)
+
+#### `therapy_quote`
+**Purpose:** Quick motivation quote  
+**Usage:** `therapy_quote <user_id>`  
+**Returns:** A short motivational quote.
+
+#### `therapy_journal`
+**Purpose:** Guided journaling prompts  
+**Usage:** `therapy_journal <user_id>`  
+**Returns:** A short list of prompts to reflect on.
+
+#### `therapy_audio`
+**Purpose:** Meditation / grounding audio suggestions  
+**Usage:** `therapy_audio <user_id>`  
+**Returns:** Suggested audio searches to try.
+
+### Tracking & Continuity
+
+#### `therapy_checkin`
+**Purpose:** Daily mood check-in and lightweight snapshot  
+**Usage:** `therapy_checkin <user_id>`  
+**Behavior:** Adds an entry to mood history. May transition to SESSION_STARTED from NO_SESSION/REMEDY_PROVIDED.
+
+#### `therapy_moodlog`
+**Purpose:** View recent mood history  
+**Usage:** `therapy_moodlog <user_id> [limit]`  
+**Parameters:**
+- `limit` (int, optional, default 10, max 50)
+
+**Note:** Scheduling of future check-ins is not implemented; use an external scheduler if needed.
+
 ### Emergency Tools
 
 #### `therapy_sos`
@@ -300,6 +377,9 @@ therapy_sos alice123
 5. **Use Self-Help Tools**
    ```
    therapy_breathe alice123
+   therapy_quote alice123
+   therapy_journal alice123
+   therapy_audio alice123
    ```
 
 6. **End Session**
@@ -342,12 +422,12 @@ therapy_sos alice123
 
 The therapy system enforces proper flow transitions:
 
-- **From NO_SESSION**: Can use `/start`, `/sos`
-- **From SESSION_STARTED**: Can use `/ask`, `/wheel`, `/feel`, `/breathe`, `/exit`, `/sos`
-- **From EMOTION_IDENTIFIED**: Can use `/why`, `/remedy`, `/breathe`, `/exit`, `/sos`
-- **From DIAGNOSTIC_COMPLETE**: Can use `/remedy`, `/breathe`, `/exit`, `/sos`
-- **From REMEDY_PROVIDED**: Can use `/ask` (new issue), `/breathe`, `/exit`, `/sos`
-- **From EMERGENCY**: Can use `/exit`
+- **From NO_SESSION**: `/start`, `/sos`, `/checkin`
+- **From SESSION_STARTED**: Emotion ID commands (`/ask`, `/wheel`, `/feel`), Self-help (`/breathe`, `/quote`, `/journal`, `/audio`), `/exit`, `/sos`
+- **From EMOTION_IDENTIFIED**: `/why`, `/remedy`, `/moodlog`, Self-help, `/exit`, `/sos`
+- **From DIAGNOSTIC_COMPLETE**: `/remedy`, `/moodlog`, Self-help, `/exit`, `/sos`
+- **From REMEDY_PROVIDED**: `/ask`, `/checkin`, `/moodlog`, Self-help, `/exit`, `/sos`
+- **From EMERGENCY**: `/sos`, `/exit`
 
 ## 🔧 Technical Details
 

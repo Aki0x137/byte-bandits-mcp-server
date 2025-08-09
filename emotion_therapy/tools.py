@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Optional
+import os
 
 from fastmcp import FastMCP
 from pydantic import Field
@@ -22,6 +23,9 @@ from .responses import (
     exit_response,
     status_response,
 )
+
+# Optional: auto-run diagnostic after /feel if enabled via env var
+AUTO_WHY = os.environ.get("THERAPY_AUTO_WHY", "0").lower() in ("1", "true", "yes")
 
 
 def register_tools(mcp: FastMCP) -> dict[str, object]:
@@ -49,12 +53,21 @@ def register_tools(mcp: FastMCP) -> dict[str, object]:
         sess.context["emotion_details"] = details
         mgr.save_session(sess)
         mgr.add_to_history(user_id, "/feel", emotion, details)
-        return feel_response(
+        out = feel_response(
             details.get("primary", ""),
             details.get("variant_label"),
             details.get("intensity"),
             details.get("blend_name"),
         )
+        # Optionally auto-trigger diagnostic questions
+        if AUTO_WHY:
+            primary = details.get("primary") or (sess.current_emotion or "").upper() or "JOY"
+            qs = probe_questions(primary)
+            sess.state = SessionState.DIAGNOSTIC_COMPLETE
+            mgr.save_session(sess)
+            mgr.add_to_history(user_id, "/why", None, qs)
+            out = out + "\n\n" + why_response(primary, qs)
+        return out
 
     async def _therapy_ask(message: str, user_id: str) -> str:
         sess = mgr.get_session(user_id)
@@ -130,6 +143,82 @@ def register_tools(mcp: FastMCP) -> dict[str, object]:
         available = get_available_commands(sess.state)
         return status_response(sess.state, available)
 
+    # --- New: Self-help tools ---
+    async def _therapy_quote(user_id: str) -> str:
+        sess = mgr.get_session(user_id)
+        res = validate_command("/quote", None, sess.state)
+        if not res.is_valid:
+            return f"{res.error_message}"
+        quotes = [
+            "This too shall pass.",
+            "Small steps every day.",
+            "Feelings are real, but not final.",
+        ]
+        text = f"Quote: {quotes[hash(user_id) % len(quotes)]}"
+        mgr.add_to_history(user_id, "/quote", None, {"text": text})
+        return text
+
+    async def _therapy_journal(user_id: str) -> str:
+        sess = mgr.get_session(user_id)
+        res = validate_command("/journal", None, sess.state)
+        if not res.is_valid:
+            return f"{res.error_message}"
+        prompts = [
+            "Name one feeling right now and what triggered it.",
+            "What helped a little today?",
+            "If tomorrow is 10% better, what changed?",
+        ]
+        text = "Journal prompts:\n- " + "\n- ".join(prompts)
+        mgr.add_to_history(user_id, "/journal", None, prompts)
+        return text
+
+    async def _therapy_audio(user_id: str) -> str:
+        sess = mgr.get_session(user_id)
+        res = validate_command("/audio", None, sess.state)
+        if not res.is_valid:
+            return f"{res.error_message}"
+        tracks = [
+            "Search: 'box breathing 4-4-4-4'",
+            "Search: '5-minute grounding audio'",
+        ]
+        text = "Audio suggestions:\n- " + "\n- ".join(tracks)
+        mgr.add_to_history(user_id, "/audio", None, tracks)
+        return text
+
+    # --- New: Tracking & continuity ---
+    async def _therapy_checkin(user_id: str) -> str:
+        sess = mgr.get_session(user_id)
+        res = validate_command("/checkin", None, sess.state)
+        if not res.is_valid:
+            return f"{res.error_message}"
+        snapshot = {
+            "state": sess.state.value,
+            "emotion": (sess.context.get("emotion_details") or {}).get("variant_label") or sess.current_emotion,
+        }
+        if res.next_state:
+            sess.state = res.next_state
+            mgr.save_session(sess)
+        mgr.add_to_history(user_id, "/checkin", None, snapshot)
+        return f"Daily check-in recorded. State={snapshot['state']}, emotion={snapshot['emotion'] or 'n/a'}"
+
+    async def _therapy_moodlog(user_id: str, limit: int = 10) -> str:
+        sess = mgr.get_session(user_id)
+        res = validate_command("/moodlog", None, sess.state)
+        if not res.is_valid:
+            return f"{res.error_message}"
+        items = mgr.get_mood_history(user_id, limit=limit)
+        if not items:
+            return "No mood history yet."
+        lines = []
+        for it in items:
+            cmd = it.get("command", "?")
+            res_summary = it.get("result")
+            if isinstance(res_summary, dict) and "text" in res_summary:
+                res_summary = res_summary["text"]
+            lines.append(f"- {cmd}: {str(res_summary)[:120]}")
+        mgr.add_to_history(user_id, "/moodlog", None, {"count": len(items)})
+        return "Recent mood history:\n" + "\n".join(lines)
+
     # Register MCP tools as thin wrappers
     @mcp.tool(description="Start a therapy session for the given user_id")
     async def therapy_start(user_id: Annotated[str, Field(description="User identifier")]) -> str:
@@ -177,6 +266,29 @@ def register_tools(mcp: FastMCP) -> dict[str, object]:
     async def therapy_status(user_id: Annotated[str, Field(description="User identifier")]) -> str:
         return await _therapy_status(user_id)
 
+    @mcp.tool(description="Daily mood check-in (adds entry to history)")
+    async def therapy_checkin(user_id: Annotated[str, Field(description="User identifier")]) -> str:
+        return await _therapy_checkin(user_id)
+
+    @mcp.tool(description="Show recent mood history")
+    async def therapy_moodlog(
+        user_id: Annotated[str, Field(description="User identifier")],
+        limit: Annotated[int, Field(description="Max entries to show", ge=1, le=50)] = 10,
+    ) -> str:
+        return await _therapy_moodlog(user_id, limit)
+
+    @mcp.tool(description="Daily motivation quote")
+    async def therapy_quote(user_id: Annotated[str, Field(description="User identifier")]) -> str:
+        return await _therapy_quote(user_id)
+
+    @mcp.tool(description="Reflection journaling prompts")
+    async def therapy_journal(user_id: Annotated[str, Field(description="User identifier")]) -> str:
+        return await _therapy_journal(user_id)
+
+    @mcp.tool(description="Meditation/audio suggestions")
+    async def therapy_audio(user_id: Annotated[str, Field(description="User identifier")]) -> str:
+        return await _therapy_audio(user_id)
+
     tools_map = {
         "therapy_start": _therapy_start,
         "therapy_feel": _therapy_feel,
@@ -188,6 +300,11 @@ def register_tools(mcp: FastMCP) -> dict[str, object]:
         "therapy_sos": _therapy_sos,
         "therapy_exit": _therapy_exit,
         "therapy_status": _therapy_status,
+        "therapy_checkin": _therapy_checkin,
+        "therapy_moodlog": _therapy_moodlog,
+        "therapy_quote": _therapy_quote,
+        "therapy_journal": _therapy_journal,
+        "therapy_audio": _therapy_audio,
     }
 
     # Attach for tests/introspection and return
