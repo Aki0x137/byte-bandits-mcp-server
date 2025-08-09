@@ -1,42 +1,59 @@
 # Development Commands for Byte Bandits MCP Server
 
+## Prerequisites
+- Python 3.11 or higher
+- [uv](https://docs.astral.sh/uv/) package manager
+- Git
+
 ## Setup
 ```bash
-# Initial setup
-./scripts/setup.sh
-
-# Manual setup
-python -m venv venv
-source venv/bin/activate
-pip install -e ".[dev]"
+# Quick setup using uv
+uv sync --dev
 cp .env.example .env
+
+# Alternative: Manual setup with virtual environment
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv pip install -e ".[dev]"
+cp .env.example .env
+
+# Legacy setup script (uses pip)
+./scripts/setup.sh
 ```
 
 ## Running the Server
 ```bash
-# Development mode
+# Development mode (recommended)
+uv run python main.py
+
+# Alternative: Activate venv first
+source .venv/bin/activate
 python main.py
 
-# Production mode (with gunicorn)
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:mcp --bind 0.0.0.0:8086
+# Production mode (with uvicorn directly)
+uv run uvicorn main:mcp --host 0.0.0.0 --port 8086
+
+# Check server status
+curl http://localhost:8086/mcp/
 ```
 
 ## Development Tools
 ```bash
 # Code formatting
-black main.py tests/
-isort main.py tests/
+uv run black main.py tests/
+uv run isort main.py tests/
 
 # Type checking
-mypy main.py
-
-# Linting
-flake8 main.py tests/
+uv run mypy main.py
 
 # Testing
-pytest
-pytest --cov=main
-pytest -v tests/test_mcp_server.py
+uv run pytest
+uv run pytest --cov=main
+uv run pytest -v tests/test_mcp_server.py
+
+# Run specific test files
+uv run python test_connectivity.py
+uv run python test_server.py
 ```
 
 ## Environment Management
@@ -45,39 +62,112 @@ pytest -v tests/test_mcp_server.py
 cp .env.example .env
 
 # Check environment variables
-python -c "from main import AUTH_TOKEN, MY_NUMBER; print(f'Token: {AUTH_TOKEN[:8]}..., Number: {MY_NUMBER}')"
+uv run python -c "from main import AUTH_TOKEN, MY_NUMBER; print(f'Token: {AUTH_TOKEN[:8]}..., Number: {MY_NUMBER}')"
+
+# View current environment
+uv run python -c "import os; print('AUTH_TOKEN:', bool(os.getenv('AUTH_TOKEN'))); print('MY_NUMBER:', os.getenv('MY_NUMBER', 'Not set'))"
+```
+
+## Available Tools
+The server provides these tools:
+- **validate**: Returns phone number for Puch AI authentication
+- **echo**: Simple echo tool for testing connectivity
+- **fetch_web_content**: Fetch and convert web content to markdown (if dependencies available)
+- **convert_to_bw**: Convert images to black and white (if PIL available)
+
+## Dependency Management
+```bash
+# Add new dependencies
+uv add package-name
+
+# Add development dependencies
+uv add --dev package-name
+
+# Update all dependencies
+uv sync --upgrade
+
+# View dependency tree
+uv tree
+
+# Remove dependencies
+uv remove package-name
+```
+
+## Project Structure
+```
+byte-bandits-mcp-server/
+├── main.py                 # Main MCP server implementation
+├── pyproject.toml          # Project configuration and dependencies
+├── uv.lock                 # Locked dependencies
+├── .env.example            # Environment variables template
+├── .env                    # Your local environment (create from .env.example)
+├── docs/                   # Documentation
+├── scripts/                # Utility scripts
+│   ├── setup.sh           # Legacy setup script
+│   └── extract_todos.py   # TODO extraction utility
+└── tests/                  # Test suite
+    ├── test_mcp_server.py # Main server tests
+    └── test_smoke.py      # Smoke tests
 ```
 
 ## Deployment
 
-### Using ngrok (Development)
+### Local Development with ngrok
 ```bash
-# Install and setup ngrok
+# Install ngrok (if not already installed)
 # Download from https://ngrok.com/download
+
+# Configure ngrok with your authtoken
 ngrok config add-authtoken YOUR_AUTHTOKEN
+
+# Make server publicly accessible
 ngrok http 8086
+
+# In another terminal, start the server
+uv run python main.py
 ```
 
-### Using Docker (Production)
+### Docker Deployment
 ```bash
-# Build image
+# Build Docker image
 docker build -t byte-bandits-mcp .
 
-# Run container
+# Run container with environment file
 docker run -p 8086:8086 --env-file .env byte-bandits-mcp
+
+# Run with environment variables
+docker run -p 8086:8086 \
+  -e AUTH_TOKEN=your_token \
+  -e MY_NUMBER=your_number \
+  byte-bandits-mcp
 ```
 
-### Cloud Deployment
+### Cloud Deployment Options
+
+#### Railway
 ```bash
-# Railway
 railway login
 railway init
 railway up
 
-# Render
-# Push to GitHub and connect via Render dashboard
+# Set environment variables in Railway dashboard
+railway variables set AUTH_TOKEN=your_token
+railway variables set MY_NUMBER=your_number
+```
 
-# Heroku
+#### Render
+```bash
+# Push to GitHub first
+git push origin main
+
+# Connect repository via Render dashboard
+# Set environment variables in Render settings:
+# - AUTH_TOKEN=your_token
+# - MY_NUMBER=your_number
+```
+
+#### Heroku
+```bash
 heroku create your-app-name
 heroku config:set AUTH_TOKEN=your_token MY_NUMBER=your_number
 git push heroku main
@@ -85,39 +175,104 @@ git push heroku main
 
 ## Testing with Puch AI
 ```bash
-# Connect to server
-# In Puch AI chat: /mcp connect https://your-domain/mcp your_token
+# Start the server locally
+uv run python main.py
 
-# Debug mode
-# In Puch AI chat: /mcp diagnostics-level debug
+# Make it publicly accessible (choose one method):
+# 1. Using ngrok
+ngrok http 8086
 
-# Test tools
-# In Puch AI chat: Use natural language to test your tools
+# 2. Deploy to cloud (Railway, Render, Heroku, etc.)
+
+# Connect to server in Puch AI chat
+/mcp connect https://your-domain/mcp your_auth_token
+
+# Test basic connectivity
+/mcp tools list
+
+# Enable debug mode
+/mcp diagnostics-level debug
+
+# Test tools with natural language
+"Please echo back 'Hello World'"
+"Fetch content from https://example.com"
+"What's my phone number?" # Tests validate tool
 ```
 
-## Monitoring
+## Monitoring & Debugging
 ```bash
-# Check server logs
-tail -f server.log
+# View server logs (if running locally)
+uv run python main.py  # Logs appear in terminal
 
-# Monitor server status
-curl -X POST https://your-domain/mcp \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your_token" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "ping"}'
+# Test server endpoints
+curl -X GET http://localhost:8086/mcp/ \
+  -H "Authorization: Bearer your_auth_token"
+
+# Test with MCP client tools
+uv run python test_connectivity.py
+uv run python test_server.py
+
+# Check tool registration
+uv run python -c "
+from main import mcp
+print('Registered tools:')
+for tool_name in mcp._tools:
+    print(f'  - {tool_name}')
+"
+
+# Validate environment setup
+uv run python -c "
+from main import AUTH_TOKEN, MY_NUMBER, WEB_FEATURES_AVAILABLE, IMAGE_FEATURES_AVAILABLE
+print(f'✅ Auth Token: {bool(AUTH_TOKEN)}')
+print(f'✅ Phone Number: {MY_NUMBER}')
+print(f'🌐 Web Features: {WEB_FEATURES_AVAILABLE}')
+print(f'🖼️  Image Features: {IMAGE_FEATURES_AVAILABLE}')
+"
 ```
 
 ## Troubleshooting
 ```bash
+# Check Python version
+python3 --version  # Should be 3.11+
+
+# Verify uv installation
+uv --version
+
 # Check dependencies
-pip list
+uv tree
 
-# Verify Python version
-python --version
+# Reinstall dependencies
+uv sync --reinstall
 
-# Test imports
-python -c "import fastmcp, mcp; print('MCP imports OK')"
+# Clean and reinstall
+rm -rf .venv uv.lock
+uv sync --dev
 
-# Test server locally
-curl http://localhost:8086/health
+# Test imports manually
+uv run python -c "
+try:
+    import fastmcp
+    print('✅ FastMCP available')
+except ImportError as e:
+    print(f'❌ FastMCP error: {e}')
+
+try:
+    import httpx, bs4, readabilipy, markdownify
+    print('✅ Web features available')
+except ImportError as e:
+    print(f'⚠️  Web features unavailable: {e}')
+
+try:
+    from PIL import Image
+    print('✅ Image features available')
+except ImportError as e:
+    print(f'⚠️  Image features unavailable: {e}')
+"
+
+# Common issues and solutions:
+# 1. Import errors: Run 'uv sync --dev' to install dependencies
+# 2. Permission errors: Check file permissions and virtual environment
+# 3. Port already in use: Change port in main.py or kill existing process
+# 4. Authentication issues: Verify AUTH_TOKEN in .env file
+# 5. HTTPS required for Puch AI: Use ngrok or deploy to cloud with HTTPS
 ```
