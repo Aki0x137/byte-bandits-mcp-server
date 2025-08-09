@@ -4,10 +4,7 @@ A Model Context Protocol server boilerplate for Puch AI integration.
 """
 
 import asyncio
-import json
-import logging
 import os
-import sys
 from typing import Annotated
 
 from dotenv import load_dotenv
@@ -16,15 +13,6 @@ from mcp import ErrorData, McpError
 from mcp.server.auth.provider import AccessToken
 from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, ImageContent, TextContent
 from pydantic import AnyUrl, BaseModel, Field
-
-# FastAPI imports for middleware
-try:
-    from fastapi import Request, Response
-    from starlette.middleware.base import BaseHTTPMiddleware
-    import time
-    FASTAPI_MIDDLEWARE_AVAILABLE = True
-except ImportError:
-    FASTAPI_MIDDLEWARE_AVAILABLE = False
 
 # Optional imports for enhanced functionality
 try:
@@ -72,18 +60,15 @@ try:
 except Exception:
     THERAPY_TOOLS_AVAILABLE = False
 
+# Request Logger Middleware
+try:
+    from request_logger import RequestLoggerMiddleware, DetailedRequestLoggerMiddleware
+    REQUEST_LOGGER_AVAILABLE = True
+except Exception:
+    REQUEST_LOGGER_AVAILABLE = False
+
 # Load environment variables
 load_dotenv()
-
-# Configure logging to output to terminal
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
 
 # Compatibility: support OPEN_API_KEY -> OPENAI_API_KEY
 if not os.environ.get("OPENAI_API_KEY") and os.environ.get("OPEN_API_KEY"):
@@ -127,95 +112,6 @@ try:
     ENHANCED_THERAPY_AVAILABLE = True
 except ImportError:
     ENHANCED_THERAPY_AVAILABLE = False
-
-
-# Define HTTP logging middleware only if FastAPI is available
-if FASTAPI_MIDDLEWARE_AVAILABLE:
-    class HTTPLoggingMiddleware(BaseHTTPMiddleware):
-        """Custom middleware to log all HTTP requests and responses."""
-        
-        async def dispatch(self, request: Request, call_next):
-            start_time = time.time()
-            
-            # Log request details
-            logger.info("=" * 80)
-            logger.info(f"🔵 INCOMING REQUEST: {request.method} {request.url}")
-            logger.info(f"🌐 Client IP: {request.client.host if request.client else 'Unknown'}")
-            
-            # Log request headers
-            logger.info("📋 REQUEST HEADERS:")
-            for name, value in request.headers.items():
-                # Mask sensitive headers for security
-                if name.lower() in ['authorization', 'x-api-key', 'cookie']:
-                    masked_value = f"{value[:10]}..." if len(value) > 10 else "***"
-                    logger.info(f"  {name}: {masked_value}")
-                else:
-                    logger.info(f"  {name}: {value}")
-            
-            # Log request body (if available and not too large)
-            request_body = None
-            if request.method in ['POST', 'PUT', 'PATCH']:
-                try:
-                    # Read body
-                    body = await request.body()
-                    if body:
-                        if len(body) < 10000:  # Only log if body is reasonable size
-                            try:
-                                # Try to parse as JSON for prettier logging
-                                request_body = json.loads(body.decode('utf-8'))
-                                logger.info("📝 REQUEST BODY (JSON):")
-                                logger.info(json.dumps(request_body, indent=2, ensure_ascii=False))
-                            except (json.JSONDecodeError, UnicodeDecodeError):
-                                # Log as text if not JSON
-                                body_text = body.decode('utf-8', errors='replace')
-                                logger.info(f"📝 REQUEST BODY (Text): {body_text}")
-                        else:
-                            logger.info(f"📝 REQUEST BODY: <Large body {len(body)} bytes - not logged>")
-                    else:
-                        logger.info("📝 REQUEST BODY: <Empty>")
-                    
-                    # Rebuild request with body for downstream processing
-                    async def receive():
-                        return {"type": "http.request", "body": body}
-                    
-                    # Create new request with body
-                    request._receive = receive
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to read request body: {e}")
-            
-            # Process request
-            try:
-                response = await call_next(request)
-                
-                # Calculate processing time
-                process_time = time.time() - start_time
-                
-                # Log response details
-                logger.info(f"🟢 RESPONSE: {response.status_code} - {process_time:.3f}s")
-                logger.info("📋 RESPONSE HEADERS:")
-                for name, value in response.headers.items():
-                    logger.info(f"  {name}: {value}")
-                
-                # Add processing time to response headers
-                response.headers["X-Process-Time"] = str(process_time)
-                
-                logger.info("=" * 80)
-                
-                return response
-                
-            except Exception as e:
-                process_time = time.time() - start_time
-                logger.error(f"🔴 REQUEST FAILED: {e} - {process_time:.3f}s")
-                logger.info("=" * 80)
-                raise
-
-
-class ToolDescription(BaseModel):
-    """Rich description model for MCP tools."""
-    description: str
-    use_when: str
-    side_effects: str | None = None
 
 
 class SimpleTokenAuthProvider:
@@ -270,28 +166,15 @@ mcp = FastMCP(
     json_response=True,
 )
 
-# Add HTTP logging middleware if FastAPI middleware is available
-if FASTAPI_MIDDLEWARE_AVAILABLE:
-    try:
-        # FastMCP has a built-in add_middleware method
-        mcp.add_middleware(HTTPLoggingMiddleware)
-        logger.info("✅ HTTP request logging middleware enabled via FastMCP")
-    except Exception as e:
-        # Fallback: try to add to underlying FastAPI apps
-        try:
-            if hasattr(mcp, 'http_app') and mcp.http_app:
-                mcp.http_app.add_middleware(HTTPLoggingMiddleware)
-                logger.info("✅ HTTP request logging middleware enabled via http_app")
-            if hasattr(mcp, 'streamable_http_app') and mcp.streamable_http_app:
-                mcp.streamable_http_app.add_middleware(HTTPLoggingMiddleware)
-                logger.info("✅ HTTP request logging middleware enabled via streamable_http_app")
-            if hasattr(mcp, 'sse_app') and mcp.sse_app:
-                mcp.sse_app.add_middleware(HTTPLoggingMiddleware)
-                logger.info("✅ HTTP request logging middleware enabled via sse_app")
-        except Exception as e2:
-            logger.warning(f"⚠️ Failed to add HTTP logging middleware: {e}, {e2}")
-else:
-    logger.warning("⚠️ FastAPI middleware not available - HTTP logging disabled")
+# Add request logging middleware
+if REQUEST_LOGGER_AVAILABLE:
+    # Add detailed request logger that logs headers and body
+    mcp.add_middleware(DetailedRequestLoggerMiddleware(
+        include_headers=True,
+        include_body=True,
+        max_body_length=2000,  # Increased limit for debugging
+        sensitive_headers=["authorization", "bearer", "x-api-key", "auth-token"]
+    ))
 
 
 @mcp.tool
@@ -503,6 +386,8 @@ async def main():
         features.append("Redis Session Store (Emotion Therapy)")
     if THERAPY_TOOLS_AVAILABLE:
         features.append("Therapy Tools")
+    if REQUEST_LOGGER_AVAILABLE:
+        features.append("Request Logger Middleware")
     if ENHANCED_THERAPY_AVAILABLE:
         features.append("Enhanced Emotion Therapy Assistant (Chain of Thoughts)")
     elif OPENAI_FEATURES_AVAILABLE or GEMINI_FEATURES_AVAILABLE:
