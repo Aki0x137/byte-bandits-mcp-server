@@ -24,15 +24,24 @@ from .responses import (
     status_response,
 )
 from .conversation import create_conversation_manager
+from .llm_manager import create_enhanced_manager_from_env
 
 # Optional: auto-run diagnostic after /feel if enabled via env var
 AUTO_WHY = os.environ.get("THERAPY_AUTO_WHY", "0").lower() in ("1", "true", "yes")
-USE_LANGCHAIN = os.environ.get("THERAPY_USE_LANGCHAIN", "0").lower() in ("1", "true", "yes")
+USE_ENHANCED_MANAGER = os.environ.get("THERAPY_USE_ENHANCED_MANAGER", "1").lower() in ("1", "true", "yes")
 
 
 def register_tools(mcp: FastMCP) -> dict[str, object]:
     mgr = get_redis_session_manager()
-    conv_mgr = create_conversation_manager(mgr, use_langchain=USE_LANGCHAIN)
+    
+    # Use enhanced manager if enabled, otherwise fall back to basic conversation manager
+    if USE_ENHANCED_MANAGER:
+        unified_mgr = create_enhanced_manager_from_env(mgr)
+        conv_mgr = unified_mgr.conv_manager  # Access the underlying conversation manager
+    else:
+        use_langchain = os.environ.get("THERAPY_USE_LANGCHAIN", "0").lower() in ("1", "true", "yes")
+        conv_mgr = create_conversation_manager(mgr, use_langchain=use_langchain)
+        unified_mgr = None
 
     # Implementation functions (returned for tests)
     async def _therapy_start(user_id: str) -> str:
@@ -51,39 +60,70 @@ def register_tools(mcp: FastMCP) -> dict[str, object]:
 
     async def _therapy_feel(emotion: str, user_id: str) -> str:
         sess = mgr.get_session(user_id)
-        res = validate_command("/feel", emotion, sess.state)
-        if not res.is_valid:
-            return res.error_message or "Invalid input"
-        # update session emotion context
-        sess.state = res.next_state or sess.state
-        if res.llm_context:
-            sess.current_emotion = res.llm_context.get("current_emotion_primary")
-            sess.context.update(res.llm_context)
-        mgr.save_session(sess)
+        
+        # Use enhanced manager if available for full validation and safety checks
+        if unified_mgr:
+            response, validation_result, llm_context = await unified_mgr.process_user_input_with_validation(
+                user_id, f"/feel {emotion}", sess.state
+            )
+            
+            # Extract emotion details for response formatting
+            details = llm_context.get("emotion_details") or {}
+            primary = details.get("primary")
+            variant = details.get("variant_label")  
+            intensity = details.get("intensity")
+            blend = details.get("blend_name")
+            
+            msg = feel_response(primary, variant, intensity, blend)
+            
+            if AUTO_WHY:
+                why_qs = await _therapy_why(user_id)
+                return f"{msg}\n\n{why_qs}"
+            return msg
+        else:
+            # Fallback to basic validation and processing
+            res = validate_command("/feel", emotion, sess.state)
+            if not res.is_valid:
+                return res.error_message or "Invalid input"
+            # update session emotion context
+            sess.state = res.next_state or sess.state
+            if res.llm_context:
+                sess.current_emotion = res.llm_context.get("current_emotion_primary")
+                sess.context.update(res.llm_context)
+            mgr.save_session(sess)
 
-        details = (res.llm_context or {}).get("emotion_details") or {}
-        primary = details.get("primary")
-        variant = details.get("variant_label")
-        intensity = details.get("intensity")
-        blend = details.get("blend_name")
+            details = (res.llm_context or {}).get("emotion_details") or {}
+            primary = details.get("primary")
+            variant = details.get("variant_label")
+            intensity = details.get("intensity")
+            blend = details.get("blend_name")
 
-        # optional auto questions
-        msg = feel_response(primary, variant, intensity, blend)
-        await conv_mgr.add_turn(user_id, emotion, "feel", emotion, msg, details)
+            # optional auto questions
+            msg = feel_response(primary, variant, intensity, blend)
+            await conv_mgr.add_turn(user_id, emotion, "feel", emotion, msg, details)
 
-        if AUTO_WHY:
-            why_qs = await _therapy_why(user_id)
-            return f"{msg}\n\n{why_qs}"
-        return msg
+            if AUTO_WHY:
+                why_qs = await _therapy_why(user_id)
+                return f"{msg}\n\n{why_qs}"
+            return msg
 
     async def _therapy_ask(message: str, user_id: str) -> str:
         sess = mgr.get_session(user_id)
-        res = validate_command("/ask", message, sess.state)
-        if not res.is_valid:
-            return res.error_message or "Please start a session with /start"
-        reply, analysis = await conv_mgr.process_with_llm(user_id, "ask", message, message)
-        await conv_mgr.add_turn(user_id, message, "ask", message, reply, analysis)
-        return ask_response(message, analysis) if analysis else reply
+        
+        # Use enhanced manager if available for full validation and safety checks
+        if unified_mgr:
+            response, validation_result, llm_context = await unified_mgr.process_user_input_with_validation(
+                user_id, message, sess.state
+            )
+            return ask_response(message, llm_context) if llm_context else response
+        else:
+            # Fallback to basic validation and conversation manager
+            res = validate_command("/ask", message, sess.state)
+            if not res.is_valid:
+                return res.error_message or "Please start a session with /start"
+            reply, analysis = await conv_mgr.process_with_llm(user_id, "ask", message, message)
+            await conv_mgr.add_turn(user_id, message, "ask", message, reply, analysis)
+            return ask_response(message, analysis) if analysis else reply
 
     async def _therapy_wheel(user_id: str) -> str:
         txt = get_wheel_text()

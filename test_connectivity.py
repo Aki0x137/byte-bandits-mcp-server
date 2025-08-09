@@ -11,9 +11,9 @@ def test_basic_connectivity():
     print("🧪 Testing Byte Bandits MCP Server Basic Connectivity...")
     print("=" * 60)
     
-    base_url = "http://localhost:8086"
+    base_url = "http://localhost:8088"
     headers = {
-        "Authorization": "Bearer demo_token_12345",
+        "Authorization": "Bearer dev_secret_token_123",
         "Content-Type": "application/json"
     }
     
@@ -57,7 +57,7 @@ def test_basic_connectivity():
     
     print("\n" + "=" * 60)
     print("📋 Server Status Summary:")
-    print("✅ Server is running on http://localhost:8086")
+    print("✅ Server is running on http://localhost:8088")
     print("✅ MCP endpoint is accessible at /mcp/")
     print("✅ Authentication is working (Bearer token)")
     print("\n📖 Note: FastMCP servers may use Server-Sent Events (SSE) transport")

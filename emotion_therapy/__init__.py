@@ -29,6 +29,24 @@ except Exception:  # pragma: no cover
     create_conversation_manager = None  # type: ignore
     LLMProvider = None  # type: ignore
 
+# Unified LLM manager (optional)
+try:
+    from .llm_manager import (
+        UnifiedLLMManager,
+        create_unified_llm_manager,
+        create_enhanced_manager_from_env,
+        LLMConfig,
+        LLMProviderType,
+        SafetyGuardrails,
+    )
+except Exception:  # pragma: no cover
+    UnifiedLLMManager = None  # type: ignore
+    create_unified_llm_manager = None  # type: ignore
+    create_enhanced_manager_from_env = None  # type: ignore
+    LLMConfig = None  # type: ignore
+    LLMProviderType = None  # type: ignore
+    SafetyGuardrails = None  # type: ignore
+
 __all__ = [
     "RedisSessionManager",
     "TherapySession",
@@ -50,4 +68,11 @@ __all__ = [
     "ConversationManager",
     "create_conversation_manager",
     "LLMProvider",
+    # unified llm manager
+    "UnifiedLLMManager",
+    "create_unified_llm_manager",
+    "create_enhanced_manager_from_env",
+    "LLMConfig",
+    "LLMProviderType", 
+    "SafetyGuardrails",
 ]

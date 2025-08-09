@@ -24,6 +24,20 @@ try:
 except ImportError:
     WEB_FEATURES_AVAILABLE = False
 
+# AI integration for therapy assistant
+try:
+    import openai
+    from typing import Literal
+    OPENAI_FEATURES_AVAILABLE = True
+except ImportError:
+    OPENAI_FEATURES_AVAILABLE = False
+
+try:
+    import google.generativeai as genai
+    GEMINI_FEATURES_AVAILABLE = True
+except ImportError:
+    GEMINI_FEATURES_AVAILABLE = False
+
 try:
     from PIL import Image
     import base64
@@ -72,6 +86,25 @@ if not MY_NUMBER:
 # Validate phone number format
 if not MY_NUMBER.isdigit() or len(MY_NUMBER) < 10:
     raise ValueError("MY_NUMBER must be in format {country_code}{number} (e.g., 919876543210)")
+
+# Configure AI services if available
+if OPENAI_FEATURES_AVAILABLE:
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        openai.api_key = openai_key
+
+if GEMINI_FEATURES_AVAILABLE:
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key:
+        genai.configure(api_key=gemini_key)
+
+
+# Import the new LLM handler for therapeutic responses
+try:
+    from emotion_therapy.llm_stub import generate_therapeutic_response
+    ENHANCED_THERAPY_AVAILABLE = True
+except ImportError:
+    ENHANCED_THERAPY_AVAILABLE = False
 
 
 class SimpleTokenAuthProvider:
@@ -297,6 +330,29 @@ async def echo(
     return f"Echo: {message}"
 
 
+if ENHANCED_THERAPY_AVAILABLE:
+    # Enhanced Therapy assistant tool with Chain of Thoughts
+    therapy_description = ToolDescription(
+        description="Generate therapeutic responses for emotional support using Plutchik's Wheel of Emotions with Chain of Thoughts reasoning",
+        use_when="Use when user needs emotional support, wants to process feelings, or seeks therapeutic guidance",
+        side_effects="Provides empathetic responses and therapeutic suggestions using advanced LLM reasoning (not medical advice)"
+    )
+    
+    @mcp.tool(description=therapy_description.model_dump_json())
+    async def therapeutic_response(
+        emotion: Annotated[str, Field(description="The user's most likely emotion (e.g., anger, sadness, joy, fear)")],
+        context: Annotated[str, Field(description="Inferred context (e.g., work, relationships, self-image)")],
+        user_message: Annotated[str, Field(description="The user's most recent message or question")],
+        tone: Annotated[str, Field(description="Response tone: default, soothing, or motivational")] = "default",
+    ) -> str:
+        """Generate a therapeutic response for emotional support using enhanced LLM with Chain of Thoughts."""
+        try:
+            return generate_therapeutic_response(emotion, context, user_message, tone)
+        except Exception as e:
+            # Fallback response
+            return f"I understand you're experiencing {emotion}. Your feelings are valid and important. Consider taking a moment to breathe deeply and reach out to someone you trust for support."
+
+
 async def main():
     """Main server entry point."""
     print("🚀 Starting Byte Bandits MCP Server...")
@@ -313,6 +369,10 @@ async def main():
         features.append("Redis Session Store (Emotion Therapy)")
     if THERAPY_TOOLS_AVAILABLE:
         features.append("Therapy Tools")
+    if ENHANCED_THERAPY_AVAILABLE:
+        features.append("Enhanced Emotion Therapy Assistant (Chain of Thoughts)")
+    elif OPENAI_FEATURES_AVAILABLE or GEMINI_FEATURES_AVAILABLE:
+        features.append("Basic Emotion Therapy Assistant")
     
     print(f"✅ Available features: {', '.join(features)}")
 
@@ -323,9 +383,12 @@ async def main():
             # ping may raise if Redis unavailable
             if hasattr(mgr, 'client'):
                 mgr.client.ping()
-            print(f"🗄️ Redis configured at {REDIS_URL} (TTL {THERAPY_SESSION_TTL}s)")
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            session_ttl = os.getenv("THERAPY_SESSION_TTL", "259200")
+            print(f"🗄️ Redis configured at {redis_url} (TTL {session_ttl}s)")
         except Exception as e:
-            print(f"⚠️ Redis not reachable at {REDIS_URL}: {e}")
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            print(f"⚠️ Redis not reachable at {redis_url}: {e}")
 
     # Register therapy tools if available
     if THERAPY_TOOLS_AVAILABLE:
