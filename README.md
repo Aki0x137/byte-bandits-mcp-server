@@ -147,13 +147,20 @@ Deploy to services like:
 
 ### Testing
 
+Run the test suite using uv (recommended):
+
+- Quick run: `uv run pytest -q`
+- Verbose run: `uv run --with pytest python -m pytest -v`
+- One-off without syncing dev deps: `uvx pytest -q`
+- Using helper script:
+  - Quiet: `scripts/test.sh`
+  - Verbose: `VERBOSE=1 scripts/test.sh`
+
+Notes:
+- Using `python -m pytest` ensures the workspace root is on `sys.path`.
+- `--with pytest` guarantees pytest is provisioned for the run when not installed locally.
+
 ```bash
-# Run tests
-pytest
-
-# Run with coverage
-pytest --cov=main
-
 # Type checking
 mypy main.py
 
@@ -257,3 +264,35 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 Built with ❤️ by the Byte Bandits team.
 
 Use the hashtag `#BuildWithPuch` when sharing your MCP creations!
+
+## Redis setup (for Emotion Therapy sessions)
+
+1. Start Redis via Docker:
+
+```bash
+docker compose -f docker/compose.redis.yml up -d
+```
+
+2. Configure your `.env`:
+
+```
+REDIS_URL=redis://localhost:6379
+THERAPY_SESSION_TTL=259200  # 3 days
+```
+
+3. Install dependencies (includes redis-py):
+
+```bash
+pip install -e .
+```
+
+4. Verify connectivity (optional):
+
+```python
+from emotion_therapy.session_store import get_redis_session_manager
+mgr = get_redis_session_manager()
+sess = mgr.get_session("alice")
+sess.state = "SESSION_STARTED"
+mgr.save_session(sess)
+print(mgr.get_session("alice"))
+```

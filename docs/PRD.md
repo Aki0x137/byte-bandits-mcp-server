@@ -2,7 +2,7 @@
 
 ## 1. 🎯 Objective
 
-Build a WhatsApp bot that acts as a therapist assistant to:
+Build a MCP Server that acts as a therapist assistant to:
 
 - Help users identify emotions using the Wheel of Emotions
 - Ask tailored diagnostic questions based on emotion category
@@ -20,7 +20,7 @@ Build a WhatsApp bot that acts as a therapist assistant to:
 - Understand triggers
 - Get relief or actionable suggestions
 
-## 3. 💬 Supported Commands (via WhatsApp)
+## 3. 💬 Supported Commands
 
 | Command                | Purpose                          |
 |------------------------|----------------------------------|
@@ -33,6 +33,7 @@ Build a WhatsApp bot that acts as a therapist assistant to:
 | `/breathe`, `/quote`, `/journal`, `/audio` | Self-help tools |
 | `/sos`                 | Trigger emergency help           |
 | `/checkin`, `/moodlog` | Daily engagement                 |
+| `/exit`                | End or pause the current session |
 
 ## 4. 🧠 Functional Breakdown
 

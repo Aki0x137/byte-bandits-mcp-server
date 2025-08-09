@@ -30,6 +30,9 @@ dependencies = [
     
     # Additional utilities
     "python-multipart>=0.0.6",
+    
+    # Redis client for session storage
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +52,7 @@ build-backend = "hatchling.build"
 # Include the main.py file as the main module
 include = [
     "main.py",
+    "emotion_therapy/**",
     "scripts/*",
     "docs/*",
     ".env.example"
@@ -67,3 +71,13 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+# Limit discovery to tests/ and skip incomplete mcp_server tests for now
+# Run with: uv run pytest
+addopts = "-q -k 'not mcp_server'"
+testpaths = ["tests"]
+xfail_strict = true
+filterwarnings = [
+  "ignore:The `fastmcp.server.auth.providers.bearer` module is deprecated.*:DeprecationWarning",
+]

@@ -3,7 +3,7 @@ import asyncio
 import os
 from unittest.mock import patch, AsyncMock
 from main import (
-    SimpleBearerAuthProvider,
+    SimpleTokenAuthProvider,
     MY_NUMBER,
     AUTH_TOKEN,
     echo,
@@ -15,7 +15,7 @@ class TestAuthentication:
     
     def test_bearer_auth_provider_valid_token(self):
         """Test valid token authentication."""
-        provider = SimpleBearerAuthProvider("test_token")
+        provider = SimpleTokenAuthProvider("test_token")
         
         # Test with valid token
         result = asyncio.run(provider.load_access_token("test_token"))
@@ -26,7 +26,7 @@ class TestAuthentication:
     
     def test_bearer_auth_provider_invalid_token(self):
         """Test invalid token authentication."""
-        provider = SimpleBearerAuthProvider("test_token")
+        provider = SimpleTokenAuthProvider("test_token")
         
         # Test with invalid token
         result = asyncio.run(provider.load_access_token("wrong_token"))

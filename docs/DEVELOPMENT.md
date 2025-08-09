@@ -46,14 +46,15 @@ uv run isort main.py tests/
 # Type checking
 uv run mypy main.py
 
-# Testing
-uv run pytest
+# Testing (uv standard)
+uv run pytest -q           # quiet
+uv run --with pytest python -m pytest -v   # verbose, ensures pytest present
+
+# Coverage
 uv run pytest --cov=main
-uv run pytest -v tests/test_mcp_server.py
 
 # Run specific test files
-uv run python test_connectivity.py
-uv run python test_server.py
+uv run python -m pytest -v tests/test_mcp_server.py
 ```
 
 ## Environment Management

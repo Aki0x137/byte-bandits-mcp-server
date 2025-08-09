@@ -8,10 +8,16 @@ Outline levels of testing.
 - Integration: Boundary interactions
 - E2E (if needed): External contract
 
-## Tooling (Planned)
-- pytest
+## Tooling
+- pytest (run via uv)
 - coverage
 - hypothesis (property-based) optional
 
 ## Conventions
-Tests under `tests/` mirroring source tree.
+- Tests under `tests/` mirroring source tree.
+
+## How to run tests
+- Quiet: `uv run pytest -q`
+- Verbose: `uv run --with pytest python -m pytest -v`
+- Script helper: `scripts/test.sh` (set `VERBOSE=1` for `-v`)
+- Fallback (no dev sync): `uvx pytest -q`

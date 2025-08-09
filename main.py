@@ -9,7 +9,6 @@ from typing import Annotated
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.bearer import BearerAuthProvider, RSAKeyPair
 from mcp import ErrorData, McpError
 from mcp.server.auth.provider import AccessToken
 from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, ImageContent, TextContent
@@ -33,12 +32,29 @@ try:
 except ImportError:
     IMAGE_FEATURES_AVAILABLE = False
 
+# Optional Redis session store for Emotion Therapy
+try:
+    from emotion_therapy.session_store import get_redis_session_manager
+    REDIS_FEATURES_AVAILABLE = True
+except Exception:
+    REDIS_FEATURES_AVAILABLE = False
+
+# Optional Emotion Therapy tools registration
+try:
+    from emotion_therapy.tools import register_tools as register_therapy_tools
+    THERAPY_TOOLS_AVAILABLE = True
+except Exception:
+    THERAPY_TOOLS_AVAILABLE = False
+
 # Load environment variables
 load_dotenv()
 
 # Required environment variables
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 MY_NUMBER = os.environ.get("MY_NUMBER")
+# Redis-related (optional)
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
+THERAPY_SESSION_TTL = os.environ.get("THERAPY_SESSION_TTL", "259200")
 
 # Validate required environment variables
 if not AUTH_TOKEN:
@@ -51,16 +67,18 @@ if not MY_NUMBER.isdigit() or len(MY_NUMBER) < 10:
     raise ValueError("MY_NUMBER must be in format {country_code}{number} (e.g., 919876543210)")
 
 
-class SimpleBearerAuthProvider(BearerAuthProvider):
-    """Custom bearer token authentication provider for MCP server."""
-    
+class SimpleTokenAuthProvider:
+    """Minimal bearer token auth provider compatible with FastMCP.
+
+    Avoids deprecated BearerAuthProvider by only implementing load_access_token.
+    """
+
     def __init__(self, token: str):
-        k = RSAKeyPair.generate()
-        super().__init__(public_key=k.public_key, jwks_uri=None, issuer=None, audience=None)
         self.token = token
+        # Optional list of required scopes
+        self.required_scopes: list[str] = ["*"]
 
     async def load_access_token(self, token: str) -> AccessToken | None:
-        """Validate bearer token and return access token."""
         if token == self.token:
             return AccessToken(
                 token=token,
@@ -68,6 +86,21 @@ class SimpleBearerAuthProvider(BearerAuthProvider):
                 scopes=["*"],
                 expires_at=None,
             )
+        return None
+
+    # FastMCP HTTP expects a TokenVerifier-compatible object
+    async def verify_token(self, token: str) -> AccessToken | None:
+        return await self.load_access_token(token)
+
+    def get_routes(self):
+        """Return optional auth-related HTTP routes required by FastMCP.
+
+        For simple static token auth we don't need any routes, so return empty list.
+        """
+        return []
+
+    def get_resource_metadata_url(self):
+        """No protected resource metadata for simple token auth."""
         return None
 
 
@@ -81,7 +114,9 @@ class ToolDescription(BaseModel):
 # Initialize MCP server
 mcp = FastMCP(
     "Byte Bandits MCP Server",
-    auth=SimpleBearerAuthProvider(AUTH_TOKEN),
+    auth=SimpleTokenAuthProvider(AUTH_TOKEN),
+    # Respond with JSON for Streamable HTTP so simple HTTP clients/tests work
+    json_response=True,
 )
 
 
@@ -92,6 +127,15 @@ async def validate() -> str:
     Returns the server owner's phone number for authentication.
     """
     return MY_NUMBER
+
+
+# Register therapy tools if available
+try:
+    from emotion_therapy.tools import register_tools as register_therapy_tools
+    register_therapy_tools(mcp)
+    THERAPY_TOOLS_AVAILABLE = True
+except Exception:
+    THERAPY_TOOLS_AVAILABLE = False
 
 
 if WEB_FEATURES_AVAILABLE:
@@ -267,8 +311,32 @@ async def main():
         features.append("Web Content Fetching")
     if IMAGE_FEATURES_AVAILABLE:
         features.append("Image Processing")
+    if REDIS_FEATURES_AVAILABLE:
+        features.append("Redis Session Store (Emotion Therapy)")
+    if THERAPY_TOOLS_AVAILABLE:
+        features.append("Therapy Tools")
     
     print(f"✅ Available features: {', '.join(features)}")
+
+    # Try Redis connectivity (non-fatal)
+    if REDIS_FEATURES_AVAILABLE:
+        try:
+            mgr = get_redis_session_manager()
+            # ping may raise if Redis unavailable
+            if hasattr(mgr, 'client'):
+                mgr.client.ping()
+            print(f"🗄️ Redis configured at {REDIS_URL} (TTL {THERAPY_SESSION_TTL}s)")
+        except Exception as e:
+            print(f"⚠️ Redis not reachable at {REDIS_URL}: {e}")
+
+    # Register therapy tools if available
+    if THERAPY_TOOLS_AVAILABLE:
+        try:
+            register_therapy_tools(mcp)
+            print("🧠 Therapy tools registered")
+        except Exception as e:
+            print(f"⚠️ Failed to register therapy tools: {e}")
+    
     print("🌐 Server running on http://0.0.0.0:8086")
     print("📋 Required: Make server publicly accessible via HTTPS for Puch AI")
     
