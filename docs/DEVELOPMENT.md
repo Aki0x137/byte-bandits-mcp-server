@@ -11,6 +11,9 @@
 uv sync --dev
 cp .env.example .env
 
+# Enable LangChain backend (optional)
+uv pip install -e ".[langchain]"
+
 # Alternative: Manual setup with virtual environment
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -20,6 +23,15 @@ cp .env.example .env
 # Legacy setup script (uses pip)
 ./scripts/setup.sh
 ```
+
+## Environment
+- AUTH_TOKEN (required)
+- MY_NUMBER (required)
+- REDIS_URL (optional, default redis://localhost:6379)
+- THERAPY_SESSION_TTL (optional, default 259200)
+- THERAPY_AUTO_WHY (optional, 0/1)
+- THERAPY_USE_LANGCHAIN (optional, 0/1)
+- OPENAI_API_KEY (required if THERAPY_USE_LANGCHAIN=1)
 
 ## Running the Server
 ```bash

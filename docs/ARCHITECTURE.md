@@ -15,29 +15,35 @@ The Byte Bandits MCP Server is designed as a modular, extensible Model Context P
                        │   Tool Registry │
                        │   & Execution   │
                        └─────────────────┘
+                              │
+                              ▼
+                       ┌────────────────────────┐
+                       │ Emotion Therapy Module │
+                       │  - Validator (DAG)     │
+                       │  - Session Store       │
+                       │  - Conversation Mgr    │
+                       │  - LLM Provider (plug) │
+                       └────────────────────────┘
 ```
 
 ## Core Components
 
 ### 1. Server Entry Point (`main.py`)
 - **FastMCP Server**: High-level MCP server implementation
-- **Authentication**: Bearer token with RSA key pair generation
+- **Authentication**: Minimal token validation compatible with FastMCP
 - **Environment Configuration**: Secure environment variable management
 - **Tool Registration**: Dynamic tool discovery and registration
 
 ### 2. Authentication Layer
 ```python
-SimpleBearerAuthProvider
-├── RSA Key Pair Generation
-├── Access Token Validation
+SimpleTokenAuthProvider
+├── Access Token Validation (static token)
 └── Client Authentication
 ```
 
 **Features:**
-- Secure bearer token authentication
-- RSA key pair for cryptographic operations
+- Simple, deterministic token auth suitable for MCP
 - Puch AI client compatibility
-- Configurable token validation
 
 ### 3. Tool Framework
 ```python
@@ -45,7 +51,7 @@ Tool Categories
 ├── Core Tools (validate, echo)
 ├── Web Tools (fetch_web_content)
 ├── Image Tools (convert_to_bw)
-└── Custom Tools (extensible)
+└── Therapy Tools (session-aware)
 ```
 
 **Tool Description Model:**
@@ -61,44 +67,39 @@ class ToolDescription(BaseModel):
 Content Processors
 ├── WebContentFetcher
 │   ├── HTTP Client (httpx)
-│   ├── HTML Parser (BeautifulSoup)
 │   ├── Content Extraction (readabilipy)
 │   └── Markdown Conversion (markdownify)
 └── ImageProcessor
     ├── PIL Image Processing
-    ├── Base64 Encoding/Decoding
-    └── Format Conversion
+    └── Base64 Encoding/Decoding
 ```
 
-### 5. Error Handling System
-```python
-Error Management
-├── MCP Error Codes
-├── Structured Error Responses
-├── Graceful Degradation
-└── Debug Information
-```
+### 5. Emotion Therapy Module
+
+- `validator.py`: Parses and validates commands through a DAG of permissible transitions.
+- `session_store.py`: Redis-backed `TherapySession` persistence with TTL and history.
+- `conversation.py`: Conversation Manager that maintains a sliding window of structured turns and gates LLM usage by session state.
+- `tools.py`: MCP tools that orchestrate validator, session manager, and conversation manager.
+- `llm_stub.py`: Deterministic, testable LLM stub for local/dev.
+- Optional LangChain backend via `LangChainLLMProvider` when `THERAPY_USE_LANGCHAIN=1`.
 
 ## Data Flow
 
-### 1. Authentication Flow
+### Therapy Tool Flow
 ```
-Client Request → Bearer Token Validation → RSA Verification → Access Grant/Deny
-```
-
-### 2. Tool Execution Flow
-```
-Tool Call → Parameter Validation → Business Logic → Response Formatting → Client Response
+/mcp tools/call → tools.py → validator → session_store → conversation manager → LLM provider → response
+                                  ↑                 ↓
+                             history kept      structured context
 ```
 
-### 3. Web Content Processing Flow
+### Web Content Processing Flow
 ```
-URL Request → HTTP Fetch → HTML Parsing → Content Extraction → Markdown Conversion → Response
+URL Request → HTTP Fetch → Extraction → Markdown → Response
 ```
 
-### 4. Image Processing Flow
+### Image Processing Flow
 ```
-Base64 Image → Decode → PIL Processing → Format Conversion → Re-encode → Response
+Base64 Image → Decode → PIL Processing → Encode → Response
 ```
 
 ## Security Architecture
@@ -119,113 +120,33 @@ Base64 Image → Decode → PIL Processing → Format Conversion → Re-encode �
 
 ### Environment Variables
 ```bash
-AUTH_TOKEN    # Required: Bearer token for authentication
-MY_NUMBER     # Required: Phone number for validation
-PORT          # Optional: Server port (default: 8086)
-HOST          # Optional: Server host (default: 0.0.0.0)
-WEB_TIMEOUT   # Optional: Web request timeout (default: 30s)
+AUTH_TOKEN            # Required: Bearer token for authentication
+MY_NUMBER             # Required: Phone number for validation
+REDIS_URL             # Optional: Redis connection string
+THERAPY_SESSION_TTL   # Optional: TTL in seconds for session keys
+THERAPY_AUTO_WHY      # Optional: Auto-run diagnostic after /feel
+THERAPY_USE_LANGCHAIN # Optional: Enable LangChain LLM provider
+OPENAI_API_KEY        # Optional: for LangChain OpenAI (or use OPEN_API_KEY)
 ```
 
-### Feature Flags
-```python
-WEB_FEATURES_AVAILABLE    # Web content fetching capability
-IMAGE_FEATURES_AVAILABLE  # Image processing capability
-```
+The server maps `OPEN_API_KEY` → `OPENAI_API_KEY` automatically for compatibility.
 
 ## Extensibility
 
+### LLM Providers
+- Implement the `LLMProvider` protocol with methods for analysis, questions, remedies, and conversation.
+- Plug into the Conversation Manager via `create_conversation_manager(session_manager, use_langchain=...)`.
+
 ### Adding New Tools
-1. **Define Tool Function**: Async function with proper typing
-2. **Create Tool Description**: Structured metadata
-3. **Register with MCP**: Automatic registration via decorators
-4. **Add Error Handling**: Proper MCP error responses
+- Follow the pattern in `emotion_therapy/tools.py` to integrate with validator + session + conversation.
 
-### Tool Categories
-- **Core Tools**: Essential functionality (validate, echo)
-- **Content Tools**: Data processing (web, files, images)
-- **Integration Tools**: External service connectors
-- **Utility Tools**: Helper functions and utilities
+## Testing Strategy
 
-## Performance Considerations
+- Unit tests for validator, wheel integration, and stub LLM.
+- Smoke tests for MCP server and therapy tool happy-path.
+- Conversation Manager tests validate structured history and provider fallback behavior.
 
-### Async Architecture
-- **Non-blocking I/O**: Full async/await support
-- **Concurrent Requests**: Multiple simultaneous tool calls
-- **Resource Management**: Proper cleanup and resource handling
+## Deployment Notes
 
-### Optimization Strategies
-- **Connection Pooling**: Reuse HTTP connections
-- **Content Caching**: Optional response caching
-- **Request Timeouts**: Prevent hanging requests
-- **Graceful Degradation**: Continue operation with partial failures
-
-## Deployment Architecture
-
-### Development Environment
-```
-Local Machine → ngrok → Public HTTPS → Puch AI
-```
-
-### Production Environment
-```
-Cloud Platform → Load Balancer → HTTPS → MCP Server → Puch AI
-```
-
-### Supported Platforms
-- **Railway**: Recommended for quick deployment
-- **Render**: Free tier available
-- **Heroku**: Classic PaaS option
-- **DigitalOcean**: App Platform
-- **Vercel**: Serverless deployment
-- **Self-hosted**: Docker containers
-
-## Monitoring & Observability
-
-### Logging Strategy
-- **Structured Logging**: JSON-formatted logs
-- **Error Tracking**: Comprehensive error logging
-- **Performance Metrics**: Request timing and throughput
-- **Debug Information**: Configurable verbosity levels
-
-### Health Checks
-- **Server Status**: Basic health endpoint
-- **Dependency Checks**: External service availability
-- **Authentication Status**: Token validation checks
-
-## Future Extensions
-
-### Planned Components
-- **Plugin System**: Dynamic tool loading
-- **Configuration API**: Runtime configuration updates
-- **Metrics Dashboard**: Real-time monitoring
-- **Tool Marketplace**: Shareable tool packages
-- **Rate Limiting**: Request throttling
-- **Caching Layer**: Response caching system
-
-### Integration Opportunities
-- **Database Connectors**: SQL/NoSQL database tools
-- **API Integrations**: External service connectors
-- **File Processing**: Document and media processing
-- **AI/ML Tools**: Model inference and data processing
-- **Notification Systems**: Email, SMS, webhooks
-
-## Technology Stack
-
-### Core Dependencies
-- **FastMCP**: MCP server framework
-- **Pydantic**: Data validation and serialization
-- **httpx**: Async HTTP client
-- **cryptography**: Security and authentication
-
-### Optional Dependencies
-- **beautifulsoup4**: HTML parsing
-- **readabilipy**: Content extraction
-- **markdownify**: HTML to Markdown conversion
-- **Pillow**: Image processing
-- **uvicorn**: ASGI server
-
-### Development Tools
-- **pytest**: Testing framework
-- **black**: Code formatting
-- **isort**: Import sorting
-- **mypy**: Type checking
+- For LangChain provider, install extras: `pip install -e .[langchain]` and set `OPENAI_API_KEY`.
+- Redis can be started locally via `docker/compose.redis.yml`.

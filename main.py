@@ -39,7 +39,7 @@ try:
 except Exception:
     REDIS_FEATURES_AVAILABLE = False
 
-# Optional Emotion Therapy tools registration
+# Optional Emotion Therapy tools registration (import only; register later in main())
 try:
     from emotion_therapy.tools import register_tools as register_therapy_tools
     THERAPY_TOOLS_AVAILABLE = True
@@ -49,12 +49,19 @@ except Exception:
 # Load environment variables
 load_dotenv()
 
+# Compatibility: support OPEN_API_KEY -> OPENAI_API_KEY
+if not os.environ.get("OPENAI_API_KEY") and os.environ.get("OPEN_API_KEY"):
+    os.environ["OPENAI_API_KEY"] = os.environ["OPEN_API_KEY"]
+
 # Required environment variables
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 MY_NUMBER = os.environ.get("MY_NUMBER")
 # Redis-related (optional)
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 THERAPY_SESSION_TTL = os.environ.get("THERAPY_SESSION_TTL", "259200")
+# Server config
+HOST = os.environ.get("HOST", "0.0.0.0")
+PORT = int(os.environ.get("PORT", "8086"))
 
 # Validate required environment variables
 if not AUTH_TOKEN:
@@ -127,15 +134,6 @@ async def validate() -> str:
     Returns the server owner's phone number for authentication.
     """
     return MY_NUMBER
-
-
-# Register therapy tools if available
-try:
-    from emotion_therapy.tools import register_tools as register_therapy_tools
-    register_therapy_tools(mcp)
-    THERAPY_TOOLS_AVAILABLE = True
-except Exception:
-    THERAPY_TOOLS_AVAILABLE = False
 
 
 if WEB_FEATURES_AVAILABLE:
@@ -337,10 +335,10 @@ async def main():
         except Exception as e:
             print(f"⚠️ Failed to register therapy tools: {e}")
     
-    print("🌐 Server running on http://0.0.0.0:8086")
+    print(f"🌐 Server running on http://{HOST}:{PORT}")
     print("📋 Required: Make server publicly accessible via HTTPS for Puch AI")
     
-    await mcp.run_async("streamable-http", host="0.0.0.0", port=8086)
+    await mcp.run_async("streamable-http", host=HOST, port=PORT)
 
 
 if __name__ == "__main__":

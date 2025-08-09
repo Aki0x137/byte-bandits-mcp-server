@@ -15,6 +15,7 @@ A comprehensive Model Context Protocol (MCP) server boilerplate designed for sea
 - 🔄 **Echo Tool** - Test server connectivity and basic functionality
 - 🌐 **Web Content Fetcher** - Fetch and convert web content to readable markdown
 - 🖼️ **Image Processing** - Convert images to black and white
+- 🧠 **Emotion Therapy Tools** - Session-aware tools with validator and conversation manager
 - 🔧 **Extensible Framework** - Easy-to-extend tool registration system
 
 ### Development Features
@@ -48,6 +49,8 @@ pip install -e .
 
 # For development (optional)
 pip install -e ".[dev]"
+# Optional LLM backend via LangChain
+pip install -e ".[langchain]"
 ```
 
 ### 2. Configure Environment Variables
@@ -70,6 +73,15 @@ AUTH_TOKEN=your_secret_token_here
 MY_NUMBER=919876543210
 ```
 
+Optional therapy and OpenAI configuration:
+```env
+REDIS_URL=redis://localhost:6379
+THERAPY_SESSION_TTL=259200
+THERAPY_AUTO_WHY=0
+THERAPY_USE_LANGCHAIN=0  # set to 1 with OPENAI_API_KEY to enable LangChain provider
+OPENAI_API_KEY=sk-your-key  # or use OPEN_API_KEY for compatibility
+```
+
 ### 3. Run the Server
 
 ```bash
@@ -81,7 +93,7 @@ You should see output like:
 🚀 Starting Byte Bandits MCP Server...
 📱 Phone number: 919876543210
 🔐 Authentication: Bearer token configured
-✅ Available features: Core MCP Protocol, Echo Tool, Web Content Fetching, Image Processing
+✅ Available features: Core MCP Protocol, Echo Tool, Web Content Fetching, Image Processing, Therapy Tools
 🌐 Server running on http://0.0.0.0:8086
 📋 Required: Make server publicly accessible via HTTPS for Puch AI
 ```
@@ -171,9 +183,16 @@ isort main.py
 
 ## 📚 Architecture
 
+### Conversation Manager (Emotion Therapy)
+
+- Tools route through a Conversation Manager which stores the last N turns in `TherapySession.history`.
+- Validates commands with the `validator` DAG and enforces session lifecycle (`/start` → `/exit`).
+- LLM backend is pluggable: default stub or LangChain when `THERAPY_USE_LANGCHAIN=1` and `OPENAI_API_KEY` is set.
+- The LangChain provider uses `langchain_openai.ChatOpenAI` with the async API.
+
 ### Core Components
 
-- **Authentication**: Bearer token with RSA key pair generation
+- **Authentication**: Bearer token
 - **Tool Registry**: Pydantic-based tool descriptions and validation
 - **Error Handling**: MCP-compliant error codes and messages
 - **Content Processing**: HTML to Markdown conversion utilities
@@ -184,7 +203,7 @@ isort main.py
 1. **Core Tools**: validate, echo
 2. **Web Tools**: fetch_web_content
 3. **Image Tools**: convert_to_bw
-4. **Custom Tools**: (add your own)
+4. **Emotion Therapy Tools**: therapy_start, therapy_feel, therapy_ask, therapy_wheel, therapy_why, therapy_remedy, therapy_breathe, therapy_sos, therapy_exit, therapy_status
 
 ## 🔒 Security Considerations
 
@@ -196,37 +215,13 @@ isort main.py
 
 ## 📖 API Reference
 
-### Required Tools
-
-#### `validate()`
-- **Purpose**: Required by Puch AI for authentication
-- **Returns**: Server owner's phone number
-- **Format**: `{country_code}{number}` (e.g., "919876543210")
-
-### Optional Tools
-
-#### `echo(message: str)`
-- **Purpose**: Test server connectivity
-- **Parameters**: `message` - Text to echo back
-- **Returns**: Echoed message with prefix
-
-#### `fetch_web_content(url: AnyUrl, raw: bool = False)`
-- **Purpose**: Fetch and process web content
-- **Parameters**: 
-  - `url` - URL to fetch
-  - `raw` - Return raw content without markdown conversion
-- **Returns**: Processed content with metadata
-
-#### `convert_to_bw(image_data: str)`
-- **Purpose**: Convert images to black and white
-- **Parameters**: `image_data` - Base64-encoded image data
-- **Returns**: List of ImageContent with converted image
+See docstrings in `main.py` and `emotion_therapy/tools.py` for parameter details.
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **Import Errors**: Ensure all dependencies are installed
+1. **Import Errors**: Ensure all dependencies are installed. For LangChain backend run `pip install -e .[langchain]` and set `OPENAI_API_KEY`.
 2. **Authentication Failures**: Check AUTH_TOKEN and MY_NUMBER format
 3. **Connection Issues**: Verify HTTPS accessibility
 4. **Tool Errors**: Check tool parameter validation
@@ -252,9 +247,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🆘 Getting Help
 
-- **Puch AI Discord**: https://discord.gg/VMCnMvYx
 - **Puch AI MCP Documentation**: https://puch.ai/mcp
-- **Puch WhatsApp**: +91 99988 81729
 - **MCP Protocol Documentation**: https://modelcontextprotocol.io/
 
 ---
@@ -278,12 +271,16 @@ docker compose -f docker/compose.redis.yml up -d
 ```
 REDIS_URL=redis://localhost:6379
 THERAPY_SESSION_TTL=259200  # 3 days
+THERAPY_AUTO_WHY=0
+THERAPY_USE_LANGCHAIN=0  # set to 1 with OPENAI_API_KEY to enable LangChain provider
 ```
 
-3. Install dependencies (includes redis-py):
+3. Install dependencies:
 
 ```bash
 pip install -e .
+# Optional: enable LangChain backend
+pip install -e .[langchain]
 ```
 
 4. Verify connectivity (optional):

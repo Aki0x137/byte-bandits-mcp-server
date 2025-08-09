@@ -45,6 +45,10 @@ REDIS_URL=redis://localhost:6379
 THERAPY_SESSION_TTL=259200
 # Optional: auto-run diagnostic questions after /feel
 THERAPY_AUTO_WHY=0
+# Optional: enable LangChain backend (requires extras install and API key)
+THERAPY_USE_LANGCHAIN=0
+# OpenAI credentials if using LangChain provider
+OPENAI_API_KEY=
 ENV
   echo "✅ Created .env with defaults. Edit it to match your environment."
 else

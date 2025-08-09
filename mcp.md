@@ -25,6 +25,14 @@ For emotion therapy features:
 therapy_start your_user_id
 ```
 
+Then try:
+```
+therapy_feel ecstatic user_id=your_user_id
+therapy_why user_id=your_user_id
+therapy_remedy user_id=your_user_id
+therapy_exit user_id=your_user_id
+```
+
 ## ▶️ Run the server locally
 
 Prerequisites: Python 3.11+, uv (recommended), Redis optional (for therapy session persistence).
@@ -32,15 +40,14 @@ Prerequisites: Python 3.11+, uv (recommended), Redis optional (for therapy sessi
 - Configure environment variables (required):
   - AUTH_TOKEN: bearer token for auth
   - MY_NUMBER: your phone number digits (e.g., 14155551234)
+- Optional:
+  - REDIS_URL, THERAPY_SESSION_TTL
+  - THERAPY_AUTO_WHY=0|1
+  - THERAPY_USE_LANGCHAIN=0|1 (requires OPENAI_API_KEY and `uv pip install -e .[langchain]`)
 
 Quick start with uv:
 ```bash
-# Inline env vars
-AUTH_TOKEN=demo_token_12345 MY_NUMBER=14155551234 uv run python main.py
-
-# Or export then run
-export AUTH_TOKEN=demo_token_12345
-export MY_NUMBER=14155551234
+uv sync --dev
 uv run python main.py
 ```
 

@@ -67,22 +67,21 @@ List:
   - Rationale: Robust server operation and debugging
   - Dependencies: MCP error types
 
-### Sample Tools Implementation
+### Conversation & LLM Layer
 - FR-7
-  - Title: Web Content Fetching Tool
-  - Description: Implement tool to fetch and process web content with HTML to Markdown conversion
-  - Priority: M
-  - Status: Proposed
-  - Rationale: Common use case for MCP servers
-  - Dependencies: httpx, beautifulsoup4, readabilipy, markdownify
+  - Title: Session-Scoped Conversation Manager
+  - Status: Accepted
+  - Description: Provide structured history and context; enforce session state for LLM calls.
 
 - FR-8
-  - Title: Image Processing Tool
-  - Description: Implement basic image processing capabilities (e.g., black & white conversion)
-  - Priority: L
-  - Status: Proposed
-  - Rationale: Demonstrate multimedia tool capabilities
-  - Dependencies: Pillow
+  - Title: Pluggable LLM Provider
+  - Status: Accepted
+  - Description: Default stub; optional LangChain provider toggled via env.
+
+### Sample Tools Implementation
+- FR-9
+  - Title: Therapy Tools wired to Conversation Manager
+  - Status: Accepted
 
 ## Non-Functional Requirements
 Format:

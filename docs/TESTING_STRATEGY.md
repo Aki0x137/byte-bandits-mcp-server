@@ -21,3 +21,7 @@ Outline levels of testing.
 - Verbose: `uv run --with pytest python -m pytest -v`
 - Script helper: `scripts/test.sh` (set `VERBOSE=1` for `-v`)
 - Fallback (no dev sync): `uvx pytest -q`
+
+## New Components
+- Conversation Manager: unit tests focus on start/add_turn/process_with_llm/end flows.
+- LangChain path is feature-flagged; keep tests stubbed unless extras installed.

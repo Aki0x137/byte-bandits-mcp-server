@@ -27,37 +27,15 @@ Build a MCP Server that acts as a therapist assistant to:
 | `/start`               | Start/reset conversation         |
 | `/feel <emotion>`      | Direct input of emotional state  |
 | `/ask <text>`          | Free-form message                |
-| `/wheel`               | Display emotion categories       |
-| `/why`                 | Begin diagnostic questioning     |
-| `/remedy`              | Get suggestions or exercises     |
-| `/breathe`, `/quote`, `/journal`, `/audio` | Self-help tools |
-| `/sos`                 | Trigger emergency help           |
-| `/checkin`, `/moodlog` | Daily engagement                 |
-| `/exit`                | End or pause the current session |
+| `/why`                 | Diagnostic questions             |
+| `/remedy`              | Coping strategies                |
+| `/exit`                | End session and clear context    |
 
-## 4. 🧠 Functional Breakdown
+## 4. 🧠 Conversation & Session Model
+- Conversations are session-scoped. LLM calls only occur after `/start`.
+- Structured `history` per session keeps recent N turns for context.
+- A Conversation Manager mediates tools/validator ↔ LLM and supports pluggable backends (stub or LangChain).
 
-### Phase 1: Emotion Identification
-
-- Use NLP to extract emotional keywords from user inputs
-- Map to Plutchik’s Wheel of Emotions (Core → Secondary → Tertiary)
-
-### Phase 2: Refinement/Diagnosis
-
-- Based on the mapped emotion, ask 2–3 probing questions from a predefined bank
-- Use responses to infer context (work, family, self, trauma, etc.)
-
-### Phase 3: Suggestion & Remedy
-
-- Based on emotion + context, offer:
-    - Breathing/grounding exercises
-    - Audio for meditation
-    - Coping strategies
-    - Journaling prompts
-    - Crisis redirection if needed
-
-### Phase 4: Memory, Logging, and Continuity
-
-- Store user session history (mood trends, responses)
-- Enable follow-up check-ins
-- Protect privacy and anonymize data
+## 5. 🔁 Backends
+- Default: deterministic stub (no network).
+- Optional: LangChain provider controlled by `THERAPY_USE_LANGCHAIN=1` and OpenAI credentials.

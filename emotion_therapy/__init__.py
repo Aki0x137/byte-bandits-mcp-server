@@ -12,11 +12,22 @@ except Exception:  # pragma: no cover - optional during early scaffolding
     TherapySession = None  # type: ignore
 
     def get_redis_session_manager():  # type: ignore
-        raise RuntimeError("Session store not available")
+        raise RuntimeError("Redis session manager unavailable")
 
 from .models import CommandType, SessionState, TherapySession as ModelTherapySession, ValidationResult
 from .validator import get_available_commands, validate_command, parse_command
 from .llm_stub import analyze_text, probe_questions, suggest_remedies
+# Conversation layer (optional LangChain)
+try:
+    from .conversation import (
+        ConversationManager,
+        create_conversation_manager,
+        LLMProvider,
+    )
+except Exception:  # pragma: no cover
+    ConversationManager = None  # type: ignore
+    create_conversation_manager = None  # type: ignore
+    LLMProvider = None  # type: ignore
 
 __all__ = [
     "RedisSessionManager",
@@ -35,4 +46,8 @@ __all__ = [
     "analyze_text",
     "probe_questions",
     "suggest_remedies",
+    # conversation
+    "ConversationManager",
+    "create_conversation_manager",
+    "LLMProvider",
 ]

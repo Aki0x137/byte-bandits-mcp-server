@@ -1,145 +1,109 @@
 #!/usr/bin/env python3
 """
 Test script for the Byte Bandits MCP Server
+
+Usage:
+  uv run python test_server.py
+
+Requires the MCP server to be running locally on :8086.
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
+import os
+from typing import Any, Dict, List
+
 import httpx
 
+BASE_URL = os.environ.get("MCP_BASE_URL", "http://localhost:8086/mcp/")
+TOKEN = os.environ.get("AUTH_TOKEN", "demo_token_12345")
+COMMON_HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json, text/event-stream",
+    "Authorization": f"Bearer {TOKEN}",
+}
 
-async def test_mcp_server():
-    """Test the MCP server functionality."""
-    base_url = "http://localhost:8086/mcp/"
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "Authorization": "Bearer demo_token_12345"
-    }
-    
-    async with httpx.AsyncClient() as client:
-        print("🧪 Testing Byte Bandits MCP Server...")
-        print("=" * 50)
-        
-        # Test 1: Initialize connection
-        print("\n1. Testing initialization...")
-        init_request = {
+
+async def main() -> None:
+    print("🧪 Testing Byte Bandits MCP Server...")
+    print("=" * 50)
+
+    async with httpx.AsyncClient(headers=COMMON_HEADERS) as client:
+        # 1) Initialize
+        print("\n1) Initializing MCP session...")
+        init_req = {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "initialize",
             "params": {
                 "protocolVersion": "2024-11-05",
-                "capabilities": {
-                    "tools": {}
-                },
-                "clientInfo": {
-                    "name": "test-client",
-                    "version": "1.0.0"
-                }
-            }
+                "capabilities": {"tools": {}},
+                "clientInfo": {"name": "test-client", "version": "1.0.0"},
+            },
         }
-        
-        try:
-            response = await client.post(base_url, json=init_request, headers=headers)
-            print(f"Status: {response.status_code}")
-            if response.status_code == 200:
-                result = response.json()
-                print(f"✅ Initialize successful")
-                print(f"Server capabilities: {json.dumps(result.get('result', {}).get('capabilities', {}), indent=2)}")
-            else:
-                print(f"❌ Initialize failed: {response.text}")
-        except Exception as e:
-            print(f"❌ Initialize error: {e}")
-        
-        # Test 2: List tools
-        print("\n2. Testing tools/list...")
-        tools_request = {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/list"
-        }
-        
-        try:
-            response = await client.post(base_url, json=tools_request, headers=headers)
-            print(f"Status: {response.status_code}")
-            if response.status_code == 200:
-                result = response.json()
-                tools = result.get('result', {}).get('tools', [])
-                print(f"✅ Found {len(tools)} tools:")
-                for tool in tools:
-                    print(f"  - {tool.get('name', 'Unknown')}: {tool.get('description', 'No description')}")
-            else:
-                print(f"❌ Tools list failed: {response.text}")
-        except Exception as e:
-            print(f"❌ Tools list error: {e}")
-        
-        # Test 3: Test echo tool
-        print("\n3. Testing echo tool...")
-        echo_request = {
-            "jsonrpc": "2.0",
-            "id": 3,
-            "method": "tools/call",
-            "params": {
-                "name": "echo",
-                "arguments": {
-                    "message": "Hello from test script!"
-                }
-            }
-        }
-        
-        try:
-            response = await client.post(base_url, json=echo_request, headers=headers)
-            print(f"Status: {response.status_code}")
-            if response.status_code == 200:
-                result = response.json()
-                content = result.get('result', {}).get('content', [])
-                if content:
-                    print(f"✅ Echo response: {content[0].get('text', 'No text')}")
-                else:
-                    print(f"✅ Echo result: {result}")
-            else:
-                print(f"❌ Echo failed: {response.text}")
-        except Exception as e:
-            print(f"❌ Echo error: {e}")
-        
-        # Test 4: Test validate tool
-        print("\n4. Testing validate tool...")
-        validate_request = {
-            "jsonrpc": "2.0",
-            "id": 4,
-            "method": "tools/call",
-            "params": {
-                "name": "validate",
-                "arguments": {}
-            }
-        }
-        
-        try:
-            response = await client.post(base_url, json=validate_request, headers=headers)
-            print(f"Status: {response.status_code}")
-            if response.status_code == 200:
-                result = response.json()
-                content = result.get('result', {}).get('content', [])
-                if content:
-                    phone_number = content[0].get('text', 'No text')
-                    print(f"✅ Validate response: {phone_number}")
-                    if phone_number.isdigit() and len(phone_number) >= 10:
-                        print("✅ Phone number format is valid")
-                    else:
-                        print("⚠️  Phone number format may be invalid")
-                else:
-                    print(f"✅ Validate result: {result}")
-            else:
-                print(f"❌ Validate failed: {response.text}")
-        except Exception as e:
-            print(f"❌ Validate error: {e}")
-        
-        print("\n" + "=" * 50)
-        print("🎉 Test completed!")
-        print("\n📋 Next steps:")
-        print("1. Make server public via ngrok or cloud deployment")
-        print("2. Connect with Puch AI using: /mcp connect https://your-domain/mcp demo_token_12345")
+        r = await client.post(BASE_URL, json=init_req)
+        print(f"Status: {r.status_code}")
+        r.raise_for_status()
+        data = r.json()
+        sid = r.headers.get("mcp-session-id")
+        if sid:
+            client.headers["mcp-session-id"] = sid
+            print(f"✅ Session established: {sid}")
+        else:
+            print("⚠️  No session id header returned")
+
+        # Send initialized notification (required by FastMCP)
+        await client.post(BASE_URL, json={"jsonrpc": "2.0", "method": "notifications/initialized"})
+
+        # 2) List tools
+        print("\n2) Listing tools...")
+        list_req = {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
+        r = await client.post(BASE_URL, json=list_req)
+        r.raise_for_status()
+        tools_res = r.json().get("result", {})
+        tools: List[Dict[str, Any]] = tools_res.get("tools", [])
+        names = {t.get("name") for t in tools}
+        print(f"✅ Found {len(names)} tools: {sorted(names)}")
+
+        async def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+            req = {"jsonrpc": "2.0", "id": 40, "method": "tools/call", "params": {"name": name, "arguments": args}}
+            resp = await client.post(BASE_URL, json=req)
+            resp.raise_for_status()
+            return resp.json()
+
+        # 3) Start + Ask (valid in SESSION_STARTED)
+        print("\n3) Therapy start + ask...")
+        user = os.environ.get("MCP_TEST_USER", "test_user")
+        out = await call_tool("therapy_start", {"user_id": user})
+        print("   • start:", json.dumps(out)[0:120], "…")
+
+        out = await call_tool("therapy_ask", {"message": "I am worried about work", "user_id": user})
+        ask_text = (out.get("result", {}).get("content", [{}]) or [{}])[0].get("text", "")
+        print("   • ask:", ask_text)
+        if not ("I sense" in ask_text or "I hear you" in ask_text):
+            print("   ⚠️  Unexpected ask response; LLM provider may not be active")
+
+        # 4) Feel (sets emotion)
+        print("\n4) Therapy feel + why + remedy + exit...")
+        out = await call_tool("therapy_feel", {"emotion": "ecstatic", "user_id": user})
+        print("   • feel:", json.dumps(out)[0:120], "…")
+
+        out = await call_tool("therapy_why", {"user_id": user})
+        print("   • why:", json.dumps(out)[0:120], "…")
+
+        out = await call_tool("therapy_remedy", {"user_id": user})
+        print("   • remedy:", json.dumps(out)[0:120], "…")
+
+        out = await call_tool("therapy_exit", {"user_id": user})
+        print("   • exit:", json.dumps(out)[0:120], "…")
+
+        print("✅ Therapy flow completed")
+
+    print("\n" + "=" * 50)
+    print("🎉 Test completed!")
 
 
 if __name__ == "__main__":
-    asyncio.run(test_mcp_server())
+    asyncio.run(main())
