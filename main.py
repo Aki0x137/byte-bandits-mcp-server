@@ -213,7 +213,6 @@ mcp = FastMCP(
 
 # Add request logging middleware
 if REQUEST_LOGGER_AVAILABLE:
-    # Add detailed request logger that logs headers and body
     mcp.add_middleware(DetailedRequestLoggerMiddleware(
         include_headers=True,
         include_body=True,
