@@ -5,6 +5,7 @@ Simple connectivity test for the Byte Bandits MCP Server
 
 import requests
 import json
+import os
 
 def test_basic_connectivity():
     """Test basic connectivity and authentication."""
@@ -13,7 +14,7 @@ def test_basic_connectivity():
     
     base_url = "http://localhost:8088"
     headers = {
-        "Authorization": "Bearer dev_secret_token_123",
+        "Authorization": f"Bearer {os.getenv('AUTH_TOKEN', 'your_auth_token')}",
         "Content-Type": "application/json"
     }
     
