@@ -34,6 +34,9 @@ from .llm_manager import create_enhanced_manager_from_env
 AUTO_WHY = os.environ.get("THERAPY_AUTO_WHY", "0").lower() in ("1", "true", "yes")
 USE_ENHANCED_MANAGER = os.environ.get("THERAPY_USE_ENHANCED_MANAGER", "1").lower() in ("1", "true", "yes")
 
+def _make_json_content(payload: dict) -> TextContent:
+    return TextContent(type="text", mimeType="application/json", text=json.dumps(payload, indent=2))
+
 
 def _load_wheel_image() -> Optional[str]:
     """Load the emotion wheel image as base64 string if available."""

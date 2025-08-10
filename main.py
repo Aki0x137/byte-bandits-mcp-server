@@ -204,7 +204,7 @@ def get_current_user_phone() -> str:
     except Exception:
         return MY_NUMBER
 
-# Initialize MCP server (do not use deprecated json_response here)
+# Initialize MCP server
 mcp = FastMCP(
     "Byte Bandits MCP Server",
     # We don't use a static env token; JWTs stored in Redis are the only valid tokens
@@ -481,8 +481,16 @@ async def main():
     
     print(f"🌐 Server running on http://{HOST}:{PORT}")
     print("📋 Required: Make server publicly accessible via HTTPS for Puch AI")
-    
-    await mcp.run_async("streamable-http", host=HOST, port=PORT)
+    print("📡 Transport: JSON-RPC 2.0 over HTTP (application/json)")
+
+    # Build an HTTP app with JSON-only responses (no streaming/SSE)
+    app = mcp.http_app(path="/mcp/", json_response=True)
+
+    # Run via Uvicorn (async)
+    import uvicorn
+    config = uvicorn.Config(app, host=HOST, port=PORT, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
 
 
 if __name__ == "__main__":
