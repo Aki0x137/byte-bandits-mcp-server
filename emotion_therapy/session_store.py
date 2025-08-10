@@ -20,7 +20,7 @@ class RedisSessionManager:
     """
 
     def __init__(self, redis_url: str | None = None, ttl_seconds: int | None = None) -> None:
-        self.redis_url = redis_url or REDIS_URL
+        self.redis_url = REDIS_URL
         self.ttl = ttl_seconds or DEFAULT_TTL_SECONDS
         self.client = get_redis_client(self.redis_url)
 

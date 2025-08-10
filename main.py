@@ -53,6 +53,14 @@ try:
 except Exception:
     REDIS_FEATURES_AVAILABLE = False
 
+# Redis client for JWT token validation
+try:
+    import redis
+    REDIS_CLIENT_AVAILABLE = True
+except ImportError:
+    REDIS_CLIENT_AVAILABLE = False
+    print("⚠️ Redis client not available - skipping JWT token validation")
+
 # Optional Emotion Therapy tools registration (import only; register later in main())
 try:
     from emotion_therapy.tools import register_tools as register_therapy_tools
@@ -75,8 +83,8 @@ if not os.environ.get("OPENAI_API_KEY") and os.environ.get("OPEN_API_KEY"):
     os.environ["OPENAI_API_KEY"] = os.environ["OPEN_API_KEY"]
 
 # Required environment variables
-AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
-MY_NUMBER = os.environ.get("MY_NUMBER")
+# Fallback default used only when no auth context is available
+MY_NUMBER = os.environ.get("MY_NUMBER", "0000000000")
 # Redis-related (optional)
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 THERAPY_SESSION_TTL = os.environ.get("THERAPY_SESSION_TTL", "259200")
@@ -85,14 +93,13 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8086"))
 
 # Validate required environment variables
-if not AUTH_TOKEN:
-    raise ValueError("AUTH_TOKEN environment variable is required. Please set it in your .env file.")
 if not MY_NUMBER:
-    raise ValueError("MY_NUMBER environment variable is required. Please set it in your .env file.")
+    print("⚠️ MY_NUMBER not set - will use dynamic phone numbers from JWT tokens only")
+    MY_NUMBER = "0000000000"
 
-# Validate phone number format
-if not MY_NUMBER.isdigit() or len(MY_NUMBER) < 10:
-    raise ValueError("MY_NUMBER must be in format {country_code}{number} (e.g., 919876543210)")
+# # Validate phone number format
+# if not MY_NUMBER.isdigit() or len(MY_NUMBER) < 10:
+#     raise ValueError("MY_NUMBER must be in format {country_code}{number} (e.g., 919876543210)")
 
 # Configure AI services if available
 if OPENAI_FEATURES_AVAILABLE:
@@ -115,7 +122,7 @@ except ImportError:
 
 
 class SimpleTokenAuthProvider:
-    """Minimal bearer token auth provider compatible with FastMCP.
+    """Minimal bearer token auth provider compatible with FastMCP with Redis JWT validation.
 
     Avoids deprecated BearerAuthProvider by only implementing load_access_token.
     """
@@ -124,15 +131,40 @@ class SimpleTokenAuthProvider:
         self.token = token
         # Optional list of required scopes
         self.required_scopes: list[str] = ["*"]
+        
+        # Initialize Redis client for JWT validation
+        self.redis_client = None
+        if REDIS_CLIENT_AVAILABLE:
+            try:
+                self.redis_client = redis.from_url(REDIS_URL)
+                # Test connection
+                self.redis_client.ping()
+                print(f"✅ Redis client initialized for JWT token validation")
+            except Exception as e:
+                print(f"⚠️ Redis client initialization failed: {e}")
+                self.redis_client = None
 
     async def load_access_token(self, token: str) -> AccessToken | None:
-        if token == self.token:
-            return AccessToken(
-                token=token,
-                client_id="puch-client",
-                scopes=["*"],
-                expires_at=None,
-            )
+        # If Redis is available, check if the JWT token exists in Redis
+        if self.redis_client:
+            try:
+                phone_number = self.redis_client.get(token)
+                if phone_number:
+                    phone_str = phone_number.decode('utf-8')
+                    print(f"✅ JWT token validated via Redis for phone: {phone_str}")
+                    return AccessToken(
+                        token=token,
+                        client_id="puch-client",
+                        scopes=["*"],
+                        expires_at=None,
+                        # Store phone number in metadata for later access
+                        metadata={"phone_number": phone_str}
+                    )
+                else:
+                    print(f"❌ JWT token not found in Redis: {token[:20]}...")
+            except Exception as e:
+                print(f"⚠️ Redis error during JWT validation: {e}")
+        
         return None
 
     # FastMCP HTTP expects a TokenVerifier-compatible object
@@ -158,10 +190,25 @@ class ToolDescription(BaseModel):
     side_effects: str | None = None
 
 
+# Function to get current user's phone number from context
+def get_current_user_phone() -> str:
+    """Get the current user's phone number from the authentication context."""
+    try:
+        # Try to get from current request context
+        from fastmcp.context import get_current_request
+        request = get_current_request()
+        if request and hasattr(request, 'auth') and request.auth:
+            if hasattr(request.auth, 'metadata') and request.auth.metadata:
+                return request.auth.metadata.get("phone_number", MY_NUMBER)
+        return MY_NUMBER
+    except Exception:
+        return MY_NUMBER
+
 # Initialize MCP server (do not use deprecated json_response here)
 mcp = FastMCP(
     "Byte Bandits MCP Server",
-    auth=SimpleTokenAuthProvider(AUTH_TOKEN),
+    # We don't use a static env token; JWTs stored in Redis are the only valid tokens
+    auth=SimpleTokenAuthProvider("redis-jwt-only"),
 )
 
 # Add request logging middleware
@@ -179,9 +226,9 @@ if REQUEST_LOGGER_AVAILABLE:
 async def validate() -> str:
     """
     Validate tool required by Puch AI.
-    Returns the server owner's phone number for authentication.
+    Returns the current user's phone number for authentication.
     """
-    return MY_NUMBER
+    return get_current_user_phone()
 
 
 if WEB_FEATURES_AVAILABLE:
@@ -371,7 +418,8 @@ if ENHANCED_THERAPY_AVAILABLE:
 async def main():
     """Main server entry point."""
     print("🚀 Starting Byte Bandits MCP Server...")
-    print(f"📱 Phone number: {MY_NUMBER}")
+    print(f"📱 Default phone number: {MY_NUMBER}")
+    print(f"📱 Dynamic phone numbers: Enabled (from JWT tokens)")
     print(f"🔐 Authentication: Bearer token configured")
     
     # Log available features
@@ -396,16 +444,32 @@ async def main():
     # Try Redis connectivity (non-fatal)
     if REDIS_FEATURES_AVAILABLE:
         try:
+            print(f"🔧 Testing Redis connection...")
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            print(f"🗄️ Attempting to connect to Redis at: {redis_url}")
+            
             mgr = get_redis_session_manager()
+            print(f"✅ Redis session manager created successfully")
+            
             # ping may raise if Redis unavailable
             if hasattr(mgr, 'client'):
+                print(f"🔍 Testing Redis ping...")
                 mgr.client.ping()
-            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+                print(f"✅ Redis ping successful - connection established!")
+            
             session_ttl = os.getenv("THERAPY_SESSION_TTL", "259200")
             print(f"🗄️ Redis configured at {redis_url} (TTL {session_ttl}s)")
+            print(f"✅ Redis connection test completed successfully")
+            
         except Exception as e:
             redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            print(f"❌ Redis connection failed!")
+            print(f"   URL: {redis_url}")
+            print(f"   Error: {e}")
+            print(f"   Error type: {type(e).__name__}")
             print(f"⚠️ Redis not reachable at {redis_url}: {e}")
+    else:
+        print(f"⚠️ Redis features not available - skipping connection test")
 
     # Register therapy tools if available
     if THERAPY_TOOLS_AVAILABLE:
@@ -418,8 +482,7 @@ async def main():
     print(f"🌐 Server running on http://{HOST}:{PORT}")
     print("📋 Required: Make server publicly accessible via HTTPS for Puch AI")
     
-    # Provide json_response at run time to avoid deprecation warning
-    await mcp.run_async("streamable-http", host=HOST, port=PORT, json_response=True)
+    await mcp.run_async("streamable-http", host=HOST, port=PORT)
 
 
 if __name__ == "__main__":

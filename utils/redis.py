@@ -131,9 +131,10 @@ class _InMemoryRedis:
 
 
 def get_redis_client(url: str | None = None) -> Any:
-    target = (url or REDIS_URL).strip()
-    if target.startswith("memory://") or os.environ.get("THERAPY_FAKE_REDIS", "0").lower() in ("1", "true", "yes"):  # type: ignore
-        return _InMemoryRedis()
+    target = "rediss://red-d2bpamur433s73a1m9ng:JV0sblgekUGUtOrMj5uQKEPJpBTyYkfG@oregon-keyvalue.render.com:6379"
+    print(f"🔍 Redis target: {target}")
+    # if target.startswith("memory://") or os.environ.get("THERAPY_FAKE_REDIS", "0").lower() in ("1", "true", "yes"):  # type: ignore
+    #     return _InMemoryRedis()
     return _redis.from_url(target, decode_responses=True)
 
 

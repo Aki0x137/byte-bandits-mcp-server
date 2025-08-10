@@ -1,0 +1,379 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Form</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .form-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        input[type="text"], input[type="tel"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus, input[type="tel"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .phone-input-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .country-code-select {
+            width: 140px;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            transition: border-color 0.3s ease;
+        }
+        
+        .country-code-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .phone-input-container input[type="tel"] {
+            flex: 1;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+        }
+        .error {
+            background: #fee;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .jwt-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+        .jwt-token {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+            position: relative;
+        }
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .copy-btn:hover {
+            background: #218838;
+        }
+        .copy-btn:active {
+            transform: scale(0.98);
+        }
+        .mcp-info {
+            margin-top: 30px;
+            padding: 15px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .mcp-setup-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+        }
+        
+        .mcp-setup-section h3 {
+            margin-top: 0;
+            text-align: center;
+            font-size: 1.5em;
+        }
+        
+        .setup-steps {
+            line-height: 1.6;
+        }
+        
+        .setup-steps p {
+            margin: 12px 0;
+        }
+        
+        .setup-steps a {
+            color: #ffd700;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .setup-steps a:hover {
+            text-decoration: underline;
+        }
+        
+        .whatsapp-link {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .whatsapp-btn {
+            display: inline-block;
+            background: #25d366;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+        
+        .whatsapp-btn:hover {
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
+        
+        .example-command {
+            background: rgba(255,255,255,0.1);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .example-command code {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #ffd700;
+        }
+        .mcp-info a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .redis-status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .redis-available {
+            background: #d4edda;
+            color: #155724;
+        }
+        .redis-unavailable {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Contact Form</h1>
+        
+        <form method="POST" action="/submit">
+            <div class="form-group">
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" required placeholder="Enter your full name">
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Phone Number:</label>
+                <div class="phone-input-container">
+                    <select id="country-code" name="country_code" class="country-code-select">
+                        <option value="+91" data-country="IN">🇮🇳 +91 (India)</option>
+                        <option value="+1" data-country="US">🇺🇸 +1 (US/Canada)</option>
+                        <option value="+44" data-country="GB">🇬🇧 +44 (UK)</option>
+                        <option value="+61" data-country="AU">🇦🇺 +61 (Australia)</option>
+                        <option value="+49" data-country="DE">🇩🇪 +49 (Germany)</option>
+                        <option value="+33" data-country="FR">🇫🇷 +33 (France)</option>
+                        <option value="+81" data-country="JP">🇯🇵 +81 (Japan)</option>
+                        <option value="+86" data-country="CN">🇨🇳 +86 (China)</option>
+                        <option value="+971" data-country="AE">🇦🇪 +971 (UAE)</option>
+                        <option value="+65" data-country="SG">🇸🇬 +65 (Singapore)</option>
+                    </select>
+                    <input type="tel" id="phone" name="phone" placeholder="Enter phone number" required>
+                </div>
+            </div>
+            
+            <button type="submit">Submit</button>
+        </form>
+        
+        {% if result %}
+        <div class="result {% if error %}error{% else %}success{% endif %}">
+            {{ result }}
+        </div>
+        {% endif %}
+        
+        {% if jwt_token %}
+        <div class="jwt-section">
+            <h3>🔐 Your JWT Token</h3>
+            <p>This token is valid for 24 hours and has been stored in Redis.</p>
+            <div class="jwt-token" id="jwt-token">{{ jwt_token }}</div>
+            <button class="copy-btn" onclick="copyJWT()">📋 Copy JWT Token</button>
+        </div>
+        
+        <div class="mcp-setup-section">
+            <h3>🚀 Get Started with MCP on Puch.ai 🚀</h3>
+            <div class="setup-steps">
+                <p><strong>1️⃣</strong> Head over to <a href="https://puch.ai" target="_blank">puch.ai</a>, punch in your phone number, and grab your jwt_mcp_token 🔑</p>
+                <p><strong>2️⃣</strong> Open Puch.ai chat on WhatsApp (<a href="https://puch.ai/hack" target="_blank">👉 puch.ai/hack</a> if you're new here)</p>
+                <p><strong>3️⃣</strong> Click here:</p>
+                <div class="whatsapp-link">
+                    <a href="https://wa.me/919998881729?text=%2Fmcp%20connect%20https%3A%2F%2Fbyte-bandits-mcp-server.onrender.com%2Fmcp%20{{ jwt_token }}" target="_blank" class="whatsapp-btn">
+                        📱 Connect to MCP via WhatsApp
+                    </a>
+                </div>
+                <p><strong>4️⃣</strong> Wait for the magic connection ✨</p>
+                <p><strong>5️⃣</strong> Dive right in — try:</p>
+                <div class="example-command">
+                    <code>I want to start a therapy session using mcp 💬</code>
+                </div>
+                <p><strong>⚡ Boom!</strong> You're talking to your MCP server.</p>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="mcp-info">
+            <p>📡 MCP Server running on <a href="http://localhost:8086/mcp/">http://localhost:8086/mcp/</a></p>
+            <div class="redis-status {% if redis_available %}redis-available{% else %}redis-unavailable{% endif %}">
+                {% if redis_available %}
+                ✅ Redis Connected - JWT tokens will be stored
+                {% else %}
+                ⚠️ Redis Unavailable - JWT tokens won't be stored
+                {% endif %}
+            </div>
+        </div>
+        
+
+    </div>
+    
+    <script>
+        function copyJWT() {
+            const jwtToken = document.getElementById('jwt-token').textContent;
+            navigator.clipboard.writeText(jwtToken).then(function() {
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.style.background = '#28a745';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }).catch(function(err) {
+                console.error('Could not copy text: ', err);
+                alert('Failed to copy JWT token. Please copy it manually.');
+            });
+        }
+        
+        // Auto-detect country code based on timezone
+        function detectCountryCode() {
+            try {
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const countryCodeMap = {
+                    'Asia/Kolkata': '+91',
+                    'America/New_York': '+1',
+                    'America/Los_Angeles': '+1',
+                    'America/Chicago': '+1',
+                    'America/Denver': '+1',
+                    'Europe/London': '+44',
+                    'Europe/Paris': '+33',
+                    'Europe/Berlin': '+49',
+                    'Australia/Sydney': '+61',
+                    'Australia/Melbourne': '+61',
+                    'Asia/Tokyo': '+81',
+                    'Asia/Shanghai': '+86',
+                    'Asia/Dubai': '+971',
+                    'Asia/Singapore': '+65'
+                };
+                
+                const detectedCode = countryCodeMap[timezone];
+                if (detectedCode) {
+                    const select = document.getElementById('country-code');
+                    select.value = detectedCode;
+                    console.log(`🌍 Detected timezone: ${timezone}, setting country code: ${detectedCode}`);
+                }
+            } catch (error) {
+                console.log('Could not detect timezone, using default');
+            }
+        }
+        
+        // Run country detection when page loads
+        document.addEventListener('DOMContentLoaded', detectCountryCode);
+        
+
+    </script>
+</body>
+</html>

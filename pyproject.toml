@@ -8,38 +8,32 @@ dependencies = [
     # Core MCP dependencies
     "fastmcp>=0.2.0",
     "mcp>=1.0.0",
-    
     # Authentication & Security
     "python-dotenv>=1.0.0",
     "cryptography>=3.4.8",
-    
     # Web & HTTP
     "httpx>=0.24.0",
     "uvicorn>=0.20.0",
-    
     # Data validation
     "pydantic>=2.0.0",
-    
     # Web scraping & content processing (optional tools)
     "beautifulsoup4>=4.12.0",
     "readabilipy>=0.2.0",
     "markdownify>=0.11.0",
-    
     # Image processing (optional tools)
     "Pillow>=9.0.0",
-    
     # Additional utilities
     "python-multipart>=0.0.6",
-    
     # Redis client for session storage
     "redis>=5.0.0",
-    
     # AI integration for therapy assistant
     "openai>=1.0.0",
     "google-generativeai>=0.3.0",
     "langchain>=0.1.0",
     "langchain-openai>=0.1.0",
     "langchain-google-genai>=1.0.0",
+    "fastapi>=0.116.1",
+    "pyjwt>=2.10.1",
 ]
 
 [project.optional-dependencies]
