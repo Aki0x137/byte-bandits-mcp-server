@@ -190,19 +190,28 @@ class ToolDescription(BaseModel):
     side_effects: str | None = None
 
 
-# Function to get current user's phone number from context
+# Function to get current user's phone number from Redis by bearer token
 def get_current_user_phone() -> str:
-    """Get the current user's phone number from the authentication context."""
+    """Get the current user's phone number by looking up the bearer token in Redis."""
     try:
-        # Try to get from current request context
-        from fastmcp.context import get_current_request
-        request = get_current_request()
-        if request and hasattr(request, 'auth') and request.auth:
-            if hasattr(request.auth, 'metadata') and request.auth.metadata:
-                return request.auth.metadata.get("phone_number", MY_NUMBER)
+        from fastmcp.server.dependencies import get_access_token
+        token_obj = get_access_token()
+        token_str = getattr(token_obj, "token", None)
+        if not token_str:
+            return MY_NUMBER
+        if REDIS_CLIENT_AVAILABLE:
+            try:
+                client = redis.from_url(REDIS_URL)
+                v = client.get(token_str)
+                if v:
+                    return v.decode("utf-8")
+            except Exception as ex:
+                print(f"⚠️ Redis lookup failed: {ex}")
         return MY_NUMBER
-    except Exception:
+    except Exception as ex:
+        print(f"⚠️ Could not resolve access token: {ex}")
         return MY_NUMBER
+
 
 # Initialize MCP server
 mcp = FastMCP(
