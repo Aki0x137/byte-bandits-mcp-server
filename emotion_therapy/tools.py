@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import os
-from typing import Annotated, Optional
+import json
+import base64
+from typing import Annotated, Optional, Union, List
 
 from fastmcp import FastMCP
 from pydantic import Field
+from mcp.types import TextContent, ImageContent
 
 from .models import SessionState
 from .session_store import get_redis_session_manager
@@ -29,6 +32,32 @@ from .llm_manager import create_enhanced_manager_from_env
 # Optional: auto-run diagnostic after /feel if enabled via env var
 AUTO_WHY = os.environ.get("THERAPY_AUTO_WHY", "0").lower() in ("1", "true", "yes")
 USE_ENHANCED_MANAGER = os.environ.get("THERAPY_USE_ENHANCED_MANAGER", "1").lower() in ("1", "true", "yes")
+
+
+def _make_json_content(payload: dict) -> TextContent:
+    return TextContent(type="text", mimeType="application/json", text=json.dumps(payload, indent=2))
+
+
+def _load_wheel_image_b64() -> tuple[Optional[str], Optional[str]]:
+    """Return (base64, mime) for the wheel image if found, else (None, None)."""
+    candidates = [
+        os.path.join("docs", "assets", "wheel_of_emotion.jpg"),
+        os.path.join("docs", "assets", "wheel_of_emotion.jpeg"),
+        os.path.join("docs", "assets", "wheel_of_emotion.png"),
+        "wheel_of_emotion.jpg",
+        "wheel_of_emotion.png",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                with open(path, "rb") as f:
+                    data = f.read()
+                b64 = base64.b64encode(data).decode("utf-8")
+                mime = "image/png" if path.lower().endswith(".png") else "image/jpeg"
+                return b64, mime
+            except Exception:
+                continue
+    return None, None
 
 
 def register_tools(mcp: FastMCP) -> dict[str, object]:
@@ -177,44 +206,69 @@ def register_tools(mcp: FastMCP) -> dict[str, object]:
 
     # MCP tool registration wrappers
     @mcp.tool(name="therapy_start")
-    async def therapy_start(user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_start(user_id)
+    async def therapy_start(user_id: Annotated[str, Field(description="User ID")]) -> TextContent:  # type: ignore
+        msg = await _therapy_start(user_id)
+        return _make_json_content({"type": "session_start", "message": msg, "user_id": user_id})
 
     @mcp.tool(name="therapy_feel")
-    async def therapy_feel(emotion: Annotated[str, Field(description="Emotion or free text")], user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_feel(emotion, user_id)
+    async def therapy_feel(
+        emotion: Annotated[str, Field(description="Emotion or free text")], 
+        user_id: Annotated[str, Field(description="User ID")]
+    ) -> TextContent:  # type: ignore
+        msg = await _therapy_feel(emotion, user_id)
+        return _make_json_content({"type": "emotion_identification", "message": msg, "emotion": emotion, "user_id": user_id})
 
     @mcp.tool(name="therapy_ask")
-    async def therapy_ask(message: Annotated[str, Field(description="User message")], user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_ask(message, user_id)
+    async def therapy_ask(
+        message: Annotated[str, Field(description="User message")], 
+        user_id: Annotated[str, Field(description="User ID")]
+    ) -> TextContent:  # type: ignore
+        msg = await _therapy_ask(message, user_id)
+        return _make_json_content({"type": "conversation", "message": msg, "user_id": user_id})
 
     @mcp.tool(name="therapy_wheel")
-    async def therapy_wheel(user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_wheel(user_id)
+    async def therapy_wheel(
+        user_id: Annotated[str, Field(description="User ID")],
+        include_image: Annotated[bool, Field(description="Include the emotion wheel image in response")] = True,
+    ) -> Union[TextContent, List[Union[TextContent, ImageContent]]]:  # type: ignore
+        msg = await _therapy_wheel(user_id)
+        payload = {"type": "emotion_wheel", "content": msg, "user_id": user_id}
+        json_part = _make_json_content(payload)
+        if include_image:
+            b64, mime = _load_wheel_image_b64()
+            if b64 and mime:
+                return [json_part, ImageContent(type="image", mimeType=mime, data=b64)]
+        return json_part
 
     @mcp.tool(name="therapy_why")
-    async def therapy_why(user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_why(user_id)
+    async def therapy_why(user_id: Annotated[str, Field(description="User ID")]) -> TextContent:  # type: ignore
+        msg = await _therapy_why(user_id)
+        return _make_json_content({"type": "diagnostic_questions", "message": msg, "user_id": user_id})
 
     @mcp.tool(name="therapy_remedy")
-    async def therapy_remedy(user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_remedy(user_id)
+    async def therapy_remedy(user_id: Annotated[str, Field(description="User ID")]) -> TextContent:  # type: ignore
+        msg = await _therapy_remedy(user_id)
+        return _make_json_content({"type": "coping_strategies", "message": msg, "user_id": user_id})
 
     @mcp.tool(name="therapy_breathe")
-    async def therapy_breathe(user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_breathe(user_id)
+    async def therapy_breathe(user_id: Annotated[str, Field(description="User ID")]) -> TextContent:  # type: ignore
+        msg = await _therapy_breathe(user_id)
+        return _make_json_content({"type": "breathing_exercise", "message": msg, "user_id": user_id})
 
     @mcp.tool(name="therapy_sos")
-    async def therapy_sos(user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_sos(user_id)
+    async def therapy_sos(user_id: Annotated[str, Field(description="User ID")]) -> TextContent:  # type: ignore
+        msg = await _therapy_sos(user_id)
+        return _make_json_content({"type": "emergency", "message": msg, "user_id": user_id})
 
     @mcp.tool(name="therapy_exit")
-    async def therapy_exit(user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_exit(user_id)
+    async def therapy_exit(user_id: Annotated[str, Field(description="User ID")]) -> TextContent:  # type: ignore
+        msg = await _therapy_exit(user_id)
+        return _make_json_content({"type": "session_end", "message": msg, "user_id": user_id})
 
     @mcp.tool(name="therapy_status")
-    async def therapy_status(user_id: Annotated[str, Field(description="User ID")]) -> str:  # type: ignore
-        return await _therapy_status(user_id)
+    async def therapy_status(user_id: Annotated[str, Field(description="User ID")]) -> TextContent:  # type: ignore
+        msg = await _therapy_status(user_id)
+        return _make_json_content({"type": "status", "message": msg, "user_id": user_id})
 
     return {
         "therapy_start": _therapy_start,

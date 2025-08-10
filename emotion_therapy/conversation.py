@@ -80,7 +80,7 @@ class StubLLMProvider:
     async def generate_questions(self, emotion: str, context: ConversationContext) -> List[str]:
         if _stub_probe:
             return _stub_probe(emotion)
-        return [f"What makes you feel {emotion.lower()}?", "When did this start?"]
+        return [f"What makes the user feel {emotion.lower()}?", "When did this start?"]
 
     async def suggest_remedies(self, emotion: str, context: ConversationContext) -> List[str]:
         topics = []
@@ -95,10 +95,10 @@ class StubLLMProvider:
         return [f"Try a short walk and mindful breathing to ease {emotion.lower()}."]
 
     async def continue_conversation(self, user_input: str, context: ConversationContext) -> str:
-        # Keep deterministic and dependency-light
+        # Keep deterministic and dependency-light with clear attribution
         analysis = await self.analyze_emotion(user_input, context)
         emo = analysis.get("emotion") or context.current_emotion or "something"
-        return f"I hear you. It sounds like you're experiencing {str(emo).lower()}."
+        return f"System detected: user is experiencing {str(emo).lower()}."
 
 
 class LangChainLLMProvider(StubLLMProvider):  # type: ignore[misc]
@@ -118,14 +118,15 @@ class LangChainLLMProvider(StubLLMProvider):  # type: ignore[misc]
         messages = [SystemMessage(content=system)]
         for turn in context.recent_turns[-5:]:
             if turn.user_input:
-                messages.append(HumanMessage(content=turn.user_input))
+                messages.append(HumanMessage(content=f"User said: {turn.user_input}"))
             if turn.system_response:
-                messages.append(SystemMessage(content=turn.system_response))
-        messages.append(HumanMessage(content=user_input))
+                messages.append(SystemMessage(content=f"System responded: {turn.system_response}"))
+        messages.append(HumanMessage(content=f"User said: {user_input}"))
         # Modern LangChain async API
         try:
             result = await self.llm.ainvoke(messages)  # returns AIMessage
-            return getattr(result, "content", str(result))
+            content = getattr(result, "content", str(result))
+            return f"LLM response: {content}"
         except Exception:
             # Fallback to stub behavior if invocation fails
             return await super().continue_conversation(user_input, context)
@@ -136,7 +137,7 @@ class LangChainLLMProvider(StubLLMProvider):  # type: ignore[misc]
             f"State: {context.session_state.value}. "
             f"Emotion: {context.current_emotion or 'unknown'}. "
             f"Goal: {context.session_goal or 'support'}. "
-            "Be empathetic, ask clarifying questions, and be concise."
+            "Respond with clear attribution (User said / System responded / LLM response)."
         )
 
 
@@ -265,7 +266,11 @@ class ConversationManager:
 
 def create_conversation_manager(session_manager: Any, use_langchain: bool = False, model_name: str = "gpt-3.5-turbo") -> ConversationManager:
     if use_langchain and LANGCHAIN_AVAILABLE:  # pragma: no cover - exercised only when LC installed
-        provider = LangChainLLMProvider(model_name=model_name)
+        # Try to instantiate LC provider; fall back safely if env (e.g., OPENAI_API_KEY) is missing
+        try:
+            provider = LangChainLLMProvider(model_name=model_name)
+        except Exception:
+            provider = StubLLMProvider()
     else:
         provider = StubLLMProvider()
     return ConversationManager(session_manager, provider)

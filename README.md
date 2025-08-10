@@ -18,6 +18,50 @@ A comprehensive Model Context Protocol (MCP) server boilerplate designed for sea
 - 🧠 **Emotion Therapy Tools** - Session-aware tools with validator and conversation manager
 - 🔧 **Extensible Framework** - Easy-to-extend tool registration system
 
+## MCP Content Types and JSON Responses
+
+All MCP tool responses adhere to the MCP tools content model:
+
+- Therapy tools return JSON payloads as TextContent with mimeType set to `application/json`.
+- The emotion wheel tool may also return an image alongside JSON using ImageContent with the correct image MIME type.
+
+Example therapy_feel response content (simplified):
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "mimeType": "application/json",
+      "text": "{\n  \"type\": \"emotion_identification\",\n  \"message\": \"Emotion identified: joy [low]. You can /why to explore or /remedy for coping.\",\n  \"emotion\": \"joy\",\n  \"user_id\": \"user123\"\n}"
+    }
+  ]
+}
+```
+
+Example therapy_wheel response content when an image is available:
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "mimeType": "application/json",
+      "text": "{\n  \"type\": \"emotion_wheel\",\n  \"content\": \"Wheel of Emotions (summary): ...\",\n  \"user_id\": \"user123\"\n}"
+    },
+    {
+      "type": "image",
+      "mimeType": "image/jpeg",
+      "data": "<base64 bytes>"
+    }
+  ]
+}
+```
+
+Notes:
+- When the wheel image file is not found, only the JSON TextContent is returned.
+- JSON is embedded as a string in the TextContent per MCP spec; always check `mimeType`.
+
 ### Development Features
 - 📝 **Comprehensive Documentation** - Well-documented code and APIs
 - 🧪 **Testing Framework** - Built-in testing support
@@ -167,6 +211,12 @@ Run the test suite using uv (recommended):
 - Using helper script:
   - Quiet: `scripts/test.sh`
   - Verbose: `VERBOSE=1 scripts/test.sh`
+
+If `uv run pytest` fails with "No such file or directory", use the `--with pytest` variant, which provisions pytest for the run:
+
+```bash
+uv run --with pytest --with pytest-asyncio python -m pytest -v
+```
 
 Notes:
 - Using `python -m pytest` ensures the workspace root is on `sys.path`.

@@ -29,8 +29,8 @@ def feel_response(primary: str, variant: Optional[str], intensity: Optional[str]
 def ask_response(message: str, analysis: dict[str, Any]) -> str:
     tip = analysis.get("notes") or ""
     return (
-        f"You said: {message}\n"
-        f"I sense: {analysis.get('emotion')} ({analysis.get('variant')})\n"
+        f"User said: {message}\n"
+        f"System detected: {analysis.get('emotion')} ({analysis.get('variant')})\n"
         f"Confidence: {analysis.get('confidence'):.2f}. {tip}"
     )
 

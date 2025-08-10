@@ -158,12 +158,10 @@ class ToolDescription(BaseModel):
     side_effects: str | None = None
 
 
-# Initialize MCP server
+# Initialize MCP server (do not use deprecated json_response here)
 mcp = FastMCP(
     "Byte Bandits MCP Server",
     auth=SimpleTokenAuthProvider(AUTH_TOKEN),
-    # Respond with JSON for Streamable HTTP so simple HTTP clients/tests work
-    json_response=True,
 )
 
 # Add request logging middleware
@@ -420,7 +418,8 @@ async def main():
     print(f"🌐 Server running on http://{HOST}:{PORT}")
     print("📋 Required: Make server publicly accessible via HTTPS for Puch AI")
     
-    await mcp.run_async("streamable-http", host=HOST, port=PORT)
+    # Provide json_response at run time to avoid deprecation warning
+    await mcp.run_async("streamable-http", host=HOST, port=PORT, json_response=True)
 
 
 if __name__ == "__main__":
