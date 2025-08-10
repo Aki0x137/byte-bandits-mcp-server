@@ -30,12 +30,12 @@ templates_dir = Path("templates")
 templates_dir.mkdir(exist_ok=True)
 
 # JWT Configuration
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-this-in-production")
+JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
 
 # Redis Configuration
-REDIS_URL = os.getenv("REDIS_URL", "rediss://red-d2bpamur433s73a1m9ng:JV0sblgekUGUtOrMj5uQKEPJpBTyYkfG@oregon-keyvalue.render.com:6379")
+REDIS_URL = os.getenv("REDIS_URL")
 REDIS_TTL = int(os.getenv("REDIS_TTL", "86400"))  # 24 hours in seconds
 
 logger.info("🔧 Initializing JWT configuration...")
