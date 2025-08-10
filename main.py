@@ -190,7 +190,7 @@ class ToolDescription(BaseModel):
     side_effects: str | None = None
 
 
-# Function to get current user's phone number from Redis by bearer token
+# Function to get current user's phone number from Redis by bearer-token
 def get_current_user_phone() -> str:
     """Get the current user's phone number by looking up the bearer token in Redis."""
     try:
