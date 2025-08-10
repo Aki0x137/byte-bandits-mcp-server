@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JWT Token - {{ status }}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background-color: #f5f5f5; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .token-box { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; word-break: break-all; font-family: monospace; font-size: 14px; position: relative; }
+        .copy-btn { position: absolute; top: 10px; right: 10px; background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
+        .copy-btn:hover { background: #0056b3; }
+        .info { background-color: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0; color: #0066cc; }
+        .back-link { display: inline-block; margin-top: 20px; color: #007bff; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 JWT Token {{ status }}</h1>
+        
+        {% if is_existing %}
+        <div class="warning">
+            <strong>Found existing token!</strong> Phone number +{{ phone_number }} already has a token.
+        </div>
+        {% else %}
+        <div class="success">
+            <strong>Success!</strong> JWT token generated for phone number +{{ phone_number }}
+        </div>
+        {% endif %}
+        
+        <h3>Your JWT Token:</h3>
+        <div class="token-box" id="tokenBox">
+            <button class="copy-btn" onclick="copyToken()">Copy</button>
+            {{ token }}
+        </div>
+        
+        <div class="info">
+            <strong>Token Info:</strong><br>
+            • Phone Number: +{{ phone_number }}<br>
+            • Expires: {{ expiry_text }}<br>
+            • Stored in Redis for future requests
+        </div>
+        
+        <a href="/token-generator" class="back-link">← Generate another token</a>
+    </div>
+
+    <script>
+        function copyToken() {
+            const tokenText = document.getElementById('tokenBox').textContent.trim();
+            const token = tokenText.replace('Copy', '').trim();
+            navigator.clipboard.writeText(token).then(function() {
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = '#28a745';
+                setTimeout(() => { btn.textContent = originalText; btn.style.background = '#007bff'; }, 2000);
+            }).catch(function(err) {
+                console.error('Could not copy text: ', err);
+                alert('Could not copy token. Please select and copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>

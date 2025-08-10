@@ -77,6 +77,11 @@ Validate locally:
 uv run python scripts/validate_mcp_app.py --base-url http://localhost:8086/mcp/ --wait
 ```
 
+## 🔑 HTML Token Generator
+- Visit `/token-generator` in your browser
+- Enter country code + phone, submit to get a JWT
+- Token is stored in Redis for 14 days (same key returns existing token)
+
 ## 📋 Core Tools
 
 ### `validate`

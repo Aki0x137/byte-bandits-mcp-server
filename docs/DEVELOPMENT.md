@@ -289,3 +289,25 @@ except ImportError as e:
 # 4. Authentication issues: Verify AUTH_TOKEN in .env file
 # 5. HTTPS required for Puch AI: Use ngrok or deploy to cloud with HTTPS
 ```
+
+## Token Generator Endpoint
+
+- HTML form at `/token-generator`, POST handler at `/generate-token`
+- JWT validity: 14 days
+- Backed by Redis; key is `{country_code}{phone}`
+
+### Dependencies
+- PyJWT
+- Jinja2
+- python-multipart (already included)
+
+### Environment
+```
+JWT_SECRET=dev_secret
+JWT_EXPIRATION_DAYS=14
+TOKEN_APP_PORT=0  # set to non-zero (e.g., 8090) to run on a separate port
+```
+
+### Access
+- Default: http://localhost:8086/token-generator
+- Fallback (if mounted app unsupported): http://localhost:8087/token-generator

@@ -134,6 +134,30 @@ Deploy to services like:
    /mcp connect https://your-domain.ngrok.app/mcp your_secret_token_here
    ```
 
+## 🔑 JWT Token Generator (Simple HTML)
+
+A minimal HTML page to generate and fetch a phone-number JWT, backed by Redis.
+
+- Form URL: `http://<host>:<port>/token-generator` (mounted into main server when possible; otherwise started on `<port+1>`)
+- Submit action: POST `/generate-token`
+- Storage: Redis key `{country_code}{number}` with value = JWT token
+- Expiry: 14 days (aligned with JWT `exp`)
+
+### Env Vars
+
+```
+JWT_SECRET=your-super-secret
+JWT_EXPIRATION_DAYS=14
+# Optional mounting/port behavior
+TOKEN_APP_PATH=/            # path to mount when supported (default "/")
+TOKEN_APP_PORT=0            # 0 mounts into main app if supported; otherwise runs on PORT+1
+```
+
+### Notes
+- No frontend frameworks, pure HTML/CSS (Jinja2 templates)
+- If a token already exists for the same `{cc}{number}`, the existing token is returned
+- Requires Redis (uses `REDIS_URL`)
+
 ## 🔧 Development
 
 ### Adding New Tools

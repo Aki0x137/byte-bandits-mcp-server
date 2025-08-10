@@ -16,6 +16,7 @@ dependencies = [
     # Web & HTTP
     "httpx>=0.24.0",
     "uvicorn>=0.20.0",
+    "fastapi>=0.110.0",
     
     # Data validation
     "pydantic>=2.0.0",
@@ -40,6 +41,10 @@ dependencies = [
     "langchain>=0.1.0",
     "langchain-openai>=0.1.0",
     "langchain-google-genai>=1.0.0",
+    
+    # New: JWT + Templating
+    "PyJWT>=2.9.0",
+    "Jinja2>=3.1.0",
 ]
 
 [project.optional-dependencies]
@@ -68,6 +73,7 @@ include = [
     "emotion_therapy/**",
     "scripts/*",
     "docs/*",
+    "templates/*",
     ".env.example"
 ]
 

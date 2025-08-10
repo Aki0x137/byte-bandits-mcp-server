@@ -370,6 +370,178 @@ if ENHANCED_THERAPY_AVAILABLE:
             return f"I understand you're experiencing {emotion}. Your feelings are valid and important. Consider taking a moment to breathe deeply and reach out to someone you trust for support."
 
 
+import datetime
+from pathlib import Path
+
+# FastAPI app for HTML form endpoints
+try:
+    from fastapi import FastAPI, Request, Form, HTTPException
+    from fastapi.responses import HTMLResponse
+    from fastapi.templating import Jinja2Templates
+    FASTAPI_AVAILABLE = True
+except Exception:
+    FASTAPI_AVAILABLE = False
+
+# JWT
+try:
+    import jwt  # PyJWT
+    JWT_AVAILABLE = True
+except Exception:
+    JWT_AVAILABLE = False
+
+# JWT config (2 weeks default)
+JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-dev-secret")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_DAYS = int(os.environ.get("JWT_EXPIRATION_DAYS", "14"))
+
+# Token app mount path / separate port
+TOKEN_APP_PATH = os.environ.get("TOKEN_APP_PATH", "/")
+TOKEN_APP_PORT = int(os.environ.get("TOKEN_APP_PORT", "0"))  # 0 => try mount into main app
+
+# Country codes for dropdown
+COUNTRY_CODES: list[tuple[str, str]] = [
+    ("1", "🇺🇸 United States (+1)"),
+    ("91", "🇮🇳 India (+91)"),
+    ("44", "🇬🇧 United Kingdom (+44)"),
+    ("49", "🇩🇪 Germany (+49)"),
+    ("33", "🇫🇷 France (+33)"),
+    ("81", "🇯🇵 Japan (+81)"),
+    ("86", "🇨🇳 China (+86)"),
+    ("7", "🇷🇺 Russia (+7)"),
+    ("55", "🇧🇷 Brazil (+55)"),
+    ("61", "🇦🇺 Australia (+61)"),
+    ("34", "🇪🇸 Spain (+34)"),
+    ("39", "🇮🇹 Italy (+39)"),
+    ("31", "🇳🇱 Netherlands (+31)"),
+    ("46", "🇸🇪 Sweden (+46)"),
+    ("47", "🇳🇴 Norway (+47)"),
+    ("45", "🇩🇰 Denmark (+45)"),
+    ("41", "🇨🇭 Switzerland (+41)"),
+    ("43", "🇦🇹 Austria (+43)"),
+    ("32", "🇧🇪 Belgium (+32)"),
+    ("351", "🇵🇹 Portugal (+351)"),
+]
+
+# Redis client for token storage
+from utils.redis import get_redis_client  # ...existing import ok
+
+
+def _generate_jwt_token(full_phone: str) -> str:
+    if not JWT_AVAILABLE:
+        raise RuntimeError("PyJWT not installed. Please install PyJWT.")
+    now = datetime.datetime.utcnow()
+    exp = now + datetime.timedelta(days=JWT_EXPIRATION_DAYS)
+    payload = {"sub": full_phone, "phone_number": full_phone, "iat": now, "exp": exp}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _create_token_app() -> "FastAPI":
+    if not FASTAPI_AVAILABLE:
+        raise RuntimeError("FastAPI not installed; cannot create token app")
+    app = FastAPI(title="Token Generator", docs_url=None, redoc_url=None, openapi_url=None)
+    templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+    @app.get("/token-generator", response_class=HTMLResponse)
+    async def token_generator_form(request: Request):
+        options = "\n".join([f'<option value="{code}">{name}</option>' for code, name in COUNTRY_CODES])
+        return templates.TemplateResponse(
+            "token_form.html",
+            {"request": request, "country_options": options},
+        )
+
+    @app.post("/generate-token", response_class=HTMLResponse)
+    async def generate_token(request: Request, country_code: str = Form(...), phone_number: str = Form(...)):
+        try:
+            if not country_code or not phone_number:
+                raise HTTPException(status_code=400, detail="Both country code and phone number are required")
+            if not phone_number.isdigit():
+                raise HTTPException(status_code=400, detail="Phone number must contain only digits")
+            if len(phone_number) < 7 or len(phone_number) > 15:
+                raise HTTPException(status_code=400, detail="Phone number must be between 7 and 15 digits")
+
+            full_phone = f"{country_code}{phone_number}"
+            r = get_redis_client()
+            existing = r.get(full_phone)
+            if existing:
+                return templates.TemplateResponse(
+                    "token_success.html",
+                    {
+                        "request": request,
+                        "status": "(Existing)",
+                        "is_existing": True,
+                        "phone_number": full_phone,
+                        "token": existing,
+                        "expiry_text": f"{JWT_EXPIRATION_DAYS} days from original generation",
+                    },
+                )
+
+            token = _generate_jwt_token(full_phone)
+            # store with TTL aligned to JWT expiry
+            r.set(full_phone, token)
+            r.expire(full_phone, JWT_EXPIRATION_DAYS * 24 * 3600)
+
+            return templates.TemplateResponse(
+                "token_success.html",
+                {
+                    "request": request,
+                    "status": "Generated",
+                    "is_existing": False,
+                    "phone_number": full_phone,
+                    "token": token,
+                    "expiry_text": f"{JWT_EXPIRATION_DAYS} days from now",
+                },
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            return templates.TemplateResponse(
+                "token_error.html",
+                {"request": request, "error_message": str(e)},
+                status_code=500,
+            )
+
+    return app
+
+
+async def _maybe_start_token_app(mcp_instance) -> None:
+    """Mount FastAPI app into FastMCP HTTP server if possible; otherwise start separate server."""
+    if not (FASTAPI_AVAILABLE and JWT_AVAILABLE):
+        print("⚠️ Token generator disabled (FastAPI or PyJWT not available)")
+        return
+
+    try:
+        token_app = _create_token_app()
+        # Try to mount into FastMCP app if supported
+        mounted = False
+        for attr in ("mount", "mount_app", "add_app", "add_route"):
+            if hasattr(mcp_instance, attr):
+                try:
+                    if attr in ("mount", "mount_app"):
+                        getattr(mcp_instance, attr)(TOKEN_APP_PATH, token_app)  # type: ignore
+                        mounted = True
+                        break
+                except Exception:
+                    pass
+        if mounted:
+            print(f"🎫 JWT Token Generator mounted at: http://{HOST}:{PORT}/token-generator")
+            return
+    except Exception as e:
+        # Fallback to separate server
+        print(f"ℹ️ Mounting token app failed, will attempt separate server: {e}")
+
+    # Start separate server on TOKEN_APP_PORT (default 0 -> pick PORT+1)
+    try:
+        import uvicorn
+        port = TOKEN_APP_PORT or (PORT + 1)
+        app = _create_token_app()
+        config = uvicorn.Config(app, host=HOST, port=port, log_level="info")
+        server = uvicorn.Server(config)
+        asyncio.create_task(server.serve())
+        print(f"🎫 JWT Token Generator available at: http://{HOST}:{port}/token-generator")
+    except Exception as e:
+        print(f"⚠️ Failed to start token generator server: {e}")
+
+
 async def main():
     """Main server entry point."""
     print("🚀 Starting Byte Bandits MCP Server...")
@@ -417,6 +589,9 @@ async def main():
         except Exception as e:
             print(f"⚠️ Failed to register therapy tools: {e}")
     
+    # Start/mount token generator app
+    await _maybe_start_token_app(mcp)
+
     print(f"🌐 Server running on http://{HOST}:{PORT}")
     print("📋 Required: Make server publicly accessible via HTTPS for Puch AI")
     

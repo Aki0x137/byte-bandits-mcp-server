@@ -83,6 +83,11 @@ Content Processors
 - `llm_stub.py`: Deterministic, testable LLM stub for local/dev.
 - Optional LangChain backend via `LangChainLLMProvider` when `THERAPY_USE_LANGCHAIN=1`.
 
+### 6. HTTP HTML Endpoint (Token Generator)
+- Simple FastAPI sub-app with Jinja2 templates
+- Mounted into FastMCP HTTP server when supported; otherwise served on a sibling port
+- Uses Redis for idempotent token storage; 14-day TTL
+
 ## Data Flow
 
 ### Therapy Tool Flow
