@@ -432,7 +432,7 @@ html_template = """
                 <p><strong>2️⃣</strong> Open Puch.ai chat on WhatsApp (<a href="https://puch.ai/hack" target="_blank">👉 puch.ai/hack</a> if you're new here)</p>
                 <p><strong>3️⃣</strong> Click here:</p>
                 <div class="whatsapp-link">
-                    <a href="https://wa.me/919998881729?text=%2Fmcp%20connect%20https%3A%2F%2Fbyte-bandits-mcp-server.onrender.com%2Fmcp%20{{ jwt_token }}" target="_blank" class="whatsapp-btn">
+                    <a href="https://wa.me/919998881729?text=%2Fmcp%20connect%20https%3A%2F%2Fbyte-bandits-mcp-server-2.onrender.com%2Fmcp%20{{ jwt_token }}" target="_blank" class="whatsapp-btn">
                         📱 Connect to MCP via WhatsApp
                     </a>
                 </div>
