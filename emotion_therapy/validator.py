@@ -82,9 +82,11 @@ def get_available_commands(state: SessionState) -> list[str]:
     if state == SessionState.SESSION_STARTED:
         return sorted(EMOTION_IDENTIFICATION_COMMANDS | SELF_HELP_COMMANDS | {"exit", "sos"})
     if state == SessionState.EMOTION_IDENTIFIED:
-        return sorted({"why", "remedy", "moodlog", "exit", "sos"} | SELF_HELP_COMMANDS)
+        # Allow /ask for clarification/new details per DAG guidance
+        return sorted({"ask", "why", "remedy", "moodlog", "exit", "sos"} | SELF_HELP_COMMANDS)
     if state == SessionState.DIAGNOSTIC_COMPLETE:
-        return sorted({"remedy", "moodlog", "exit", "sos"} | SELF_HELP_COMMANDS)
+        # Keep self-help available and permit /ask to refine/clarify
+        return sorted({"ask", "remedy", "moodlog", "exit", "sos"} | SELF_HELP_COMMANDS)
     if state == SessionState.REMEDY_PROVIDED:
         return sorted({"ask", "checkin", "moodlog", "exit", "sos"} | SELF_HELP_COMMANDS)
     if state == SessionState.EMERGENCY:
@@ -106,6 +108,7 @@ def _next_state_for(command: str, current: SessionState) -> Optional[SessionStat
     if command == "remedy":
         return SessionState.REMEDY_PROVIDED
     if command == "ask":
+        # New issue cycle after remedy; otherwise remain in current phase
         return SessionState.SESSION_STARTED if current == SessionState.REMEDY_PROVIDED else current
     if command == "checkin":
         if current in (SessionState.NO_SESSION, SessionState.REMEDY_PROVIDED):
@@ -123,6 +126,16 @@ def validate_command(
     cmd = _normalize_command(command)
     ctype = command_type_of(cmd)
 
+    # Emergency always valid
+    if cmd == "sos":
+        return ValidationResult(
+            is_valid=True,
+            command_type=ctype,
+            current_state=current_state,
+            next_state=SessionState.EMERGENCY,
+            suggested_commands=["/exit"],
+        )
+
     # Unknown command name
     if cmd not in ALL_COMMANDS:
         return ValidationResult(
@@ -132,16 +145,6 @@ def validate_command(
             next_state=None,
             error_message=f"Unknown command: '/{cmd}'.",
             suggested_commands=[f"/{c}" for c in get_available_commands(current_state)],
-        )
-
-    # Emergency always valid
-    if cmd == "sos":
-        return ValidationResult(
-            is_valid=True,
-            command_type=ctype,
-            current_state=current_state,
-            next_state=SessionState.EMERGENCY,
-            suggested_commands=["/exit"],
         )
 
     allowed = set(get_available_commands(current_state))

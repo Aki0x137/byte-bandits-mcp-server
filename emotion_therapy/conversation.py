@@ -80,7 +80,7 @@ class StubLLMProvider:
     async def generate_questions(self, emotion: str, context: ConversationContext) -> List[str]:
         if _stub_probe:
             return _stub_probe(emotion)
-        return [f"What makes the user feel {emotion.lower()}?", "When did this start?"]
+        return [f"What makes the user feel {emotion.lower()}?", "When did this pattern start?"]
 
     async def suggest_remedies(self, emotion: str, context: ConversationContext) -> List[str]:
         topics = []
@@ -92,13 +92,13 @@ class StubLLMProvider:
         ctx = {"topic": " ".join(topics)} if topics else None
         if _stub_remedies:
             return _stub_remedies(emotion, ctx)
-        return [f"Try a short walk and mindful breathing to ease {emotion.lower()}."]
+        return [f"System recommends: Try a short walk and mindful breathing to ease {emotion.lower()}."]
 
     async def continue_conversation(self, user_input: str, context: ConversationContext) -> str:
         # Keep deterministic and dependency-light with clear attribution
         analysis = await self.analyze_emotion(user_input, context)
         emo = analysis.get("emotion") or context.current_emotion or "something"
-        return f"System detected: user is experiencing {str(emo).lower()}."
+        return f"System detected: User is experiencing {str(emo).lower()}. LLM processing emotional state."
 
 
 class LangChainLLMProvider(StubLLMProvider):  # type: ignore[misc]
@@ -125,8 +125,8 @@ class LangChainLLMProvider(StubLLMProvider):  # type: ignore[misc]
         # Modern LangChain async API
         try:
             result = await self.llm.ainvoke(messages)  # returns AIMessage
-            content = getattr(result, "content", str(result))
-            return f"LLM response: {content}"
+            llm_content = getattr(result, "content", str(result))
+            return f"LLM response: {llm_content}"
         except Exception:
             # Fallback to stub behavior if invocation fails
             return await super().continue_conversation(user_input, context)
@@ -134,10 +134,11 @@ class LangChainLLMProvider(StubLLMProvider):  # type: ignore[misc]
     def _build_system_prompt(self, context: ConversationContext) -> str:
         return (
             "You are a compassionate emotion therapy assistant. "
-            f"State: {context.session_state.value}. "
-            f"Emotion: {context.current_emotion or 'unknown'}. "
-            f"Goal: {context.session_goal or 'support'}. "
-            "Respond with clear attribution (User said / System responded / LLM response)."
+            f"Current session state: {context.session_state.value}. "
+            f"User's current emotion: {context.current_emotion or 'unknown'}. "
+            f"Session goal: {context.session_goal or 'support'}. "
+            "Respond empathetically, ask clarifying questions, and be concise. "
+            "Always use clear attribution (User said / System responded / LLM response)."
         )
 
 
@@ -150,11 +151,11 @@ class ConversationManager:
     async def start_conversation(self, user_id: str) -> str:
         session = self.session_manager.get_session(user_id)
         if session.state != SessionState.SESSION_STARTED:
-            return "No active session. Please start a session first."
+            return "System message: No active session. Please start a session first."
         # Reset history for a new conversation window
         session.history = []
         self.session_manager.save_session(session)
-        return "Conversation started. How are you feeling today?"
+        return "System message: Conversation started. LLM ready to process user emotions."
 
     async def add_turn(
         self,
@@ -246,30 +247,31 @@ class ConversationManager:
                 llm_result = await self.llm_provider.analyze_emotion(parameter or "", context)
             except Exception:
                 llm_result = {"emotion": parameter or "UNKNOWN"}
-            response = f"I understand you're feeling {(llm_result.get('emotion') or 'something').lower()}."
+            emotion_lower = (llm_result.get('emotion') or 'something').lower()
+            response = f"System processed: User reported feeling {emotion_lower}. LLM analysis: Emotion registered."
         elif command == "why":
             emo = context.current_emotion or "neutral"
             qs = await self.llm_provider.generate_questions(emo, context)
             llm_result = {"questions": qs}
             bullets = "\n".join(f"• {q}" for q in qs)
-            response = f"Let me ask you some questions to understand better:\n{bullets}"
+            response = f"I understand. System generated questions for emotion '{emo.lower()}':\n{bullets}"
         elif command == "remedy":
             emo = context.current_emotion or "neutral"
             rems = await self.llm_provider.suggest_remedies(emo, context)
             llm_result = {"remedies": rems}
             bullets = "\n".join(f"• {r}" for r in rems)
-            response = f"Here are some strategies that might help:\n{bullets}"
+            response = f"LLM suggested strategies for '{emo}':\n{bullets}"
         else:
-            response = "I'm here to help. How are you feeling?"
+            response = "System message: Ready to process user input. Please specify emotion or use available commands."
         return response, llm_result
 
 
 def create_conversation_manager(session_manager: Any, use_langchain: bool = False, model_name: str = "gpt-3.5-turbo") -> ConversationManager:
     if use_langchain and LANGCHAIN_AVAILABLE:  # pragma: no cover - exercised only when LC installed
-        # Try to instantiate LC provider; fall back safely if env (e.g., OPENAI_API_KEY) is missing
         try:
             provider = LangChainLLMProvider(model_name=model_name)
         except Exception:
+            # If LC cannot initialize (e.g., missing API key), fall back to stub
             provider = StubLLMProvider()
     else:
         provider = StubLLMProvider()
